@@ -170,6 +170,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
         if len(candidates) == 1:
             message = candidates[0]
         elif len(candidates) > 10 and message not in vtes.VTES:
+            logger.info("Too many candidates")
             return {"content": "Too many candidates, try a more complete card name."}
         elif 0 < len(candidates) <= 10:
             embed = {
@@ -181,7 +182,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
                 ),
                 "footer": {"text": "Click a number as reaction."},
             }
-            logger.info(str(embed))
+            logger.info("Choice embed: {}", ", ".join(candidates))
             return {
                 "content": "",
                 "embed": discord.Embed.from_dict(embed),
@@ -189,6 +190,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
             }
     # Fuzzy match and known abbreviations only if completion did not help
     if message not in vtes.VTES:
+        logger.info("No match for {}", message)
         return {"content": "No card match"}
     # card is found, build fields
     card = vtes.VTES[message]
@@ -274,7 +276,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
         "image": {"url": image_url},
         "footer": {"text": footer},
     }
-    logger.info(str(embed))
+    logger.info("Embed for {}", embed.fields["url"])
     return {
         "content": "",
         "embed": discord.Embed.from_dict(embed),
