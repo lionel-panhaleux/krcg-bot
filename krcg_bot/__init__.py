@@ -247,7 +247,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
             ruling = re.sub(r"{|}", "*", ruling)
             for reference, link in card.rulings["links"].items():
-                ruling.replace(reference, f"[{reference}]({link})")
+                ruling = ruling.replace(reference, f"[{reference}]({link})")
             # discord limits field content to 1024
             # make sure we have the room for 3 dots
             if len(rulings) + len(ruling) > 1021:

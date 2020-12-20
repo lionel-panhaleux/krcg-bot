@@ -127,3 +127,51 @@ def test_bot():
     response = krcg_bot.handle_message("foobar")
     assert not response.get("embed")
     assert response["content"] == "No card match"
+    # rulings
+    response = krcg_bot.handle_message("rotschreck")
+    assert response["embed"].to_dict() == {
+        "color": 3498574,
+        "fields": [
+            {"inline": True, "name": "Type", "value": "Master"},
+            {
+                "inline": False,
+                "name": "Card Text",
+                "value": (
+                    "Master: out-of-turn. Frenzy.\n"
+                    "Put this card on a vampire when an opposing minion "
+                    "attempts to inflict aggravated damage on him or her, "
+                    "whether the damage would be successfully inflicted or "
+                    "not. Combat ends. This vampire is locked and sent to "
+                    "torpor. This vampire does not unlock as normal. During "
+                    "this vampire's next unlock phase, burn this card."
+                ),
+            },
+            {
+                "inline": False,
+                "name": "Rulings",
+                "value": (
+                    "- Can only be played during the strike announcement "
+                    "phase, on the opponent, when a minion attempts to make "
+                    "a strike that is effective at the current range and "
+                    "would inflict aggravated damage to this opponent, even "
+                    "if the opponent treats aggravated damage as normal. "
+                    "[[RTR 19961113]](https://groups.google.com/d/msg/"
+                    "rec.games.trading-cards.jyhad/VbMEQmJjI_w/hkDh73Y1IukJ) "
+                    "[[RTR 19980623]](https://groups.google.com/d/msg/"
+                    "rec.games.trading-cards.jyhad/tSpd9dtTElc/-CuHJF54_n0J) "
+                    "[[RTR 19980928]](https://groups.google.com/d/msg/"
+                    "rec.games.trading-cards.jyhad/Xva4_IRavxM/F-_fjzTmo88J) "
+                    "[[RTR 20041202]](https://groups.google.com/d/msg/"
+                    "rec.games.trading-cards.jyhad/WUWh7AdooDU/vojisZMCSnsJ) "
+                    "[[ANK 20200130-1]](http://www.vekn.net/forum/rules-questions/"
+                    "78400-rotshreck#98821)\n"
+                    "..."
+                ),
+            },
+        ],
+        "footer": {"text": "More rulings available, click the title to see them"},
+        "image": {"url": "https://static.krcg.org/card/rotschreck.jpg#2020122018"},
+        "title": "Rötschreck",
+        "type": "rich",
+        "url": "https://codex-of-the-damned.org/en/card-search.html?card=R%C3%B6tschreck",
+    }
