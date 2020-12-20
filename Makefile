@@ -12,7 +12,7 @@ release:
 	pip install -e ".[dev]"
 
 update:
-	pip install --upgrade --upgrade-strategy eager -e .[dev,web]
+	pip install --upgrade --upgrade-strategy eager -e ".[dev]"
 
 serve:
 	source .env && krcg-bot
