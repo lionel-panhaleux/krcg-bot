@@ -1,5 +1,11 @@
 # KRCG Discord Bot
 
+[![PyPI version](https://badge.fury.io/py/krcg-bot.svg)](https://badge.fury.io/py/krcg-bot)
+[![Validation](https://github.com/lionel-panhaleux/krcg-bot/workflows/Validation/badge.svg)](https://github.com/lionel-panhaleux/krcg-bot/actions)
+[![Python version](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-MIT-blue)](https://opensource.org/licenses/MIT)
+[![Code Style](https://img.shields.io/badge/code%20style-black-black)](https://github.com/psf/black)
+
 A discord bot to display V:tES cards, using
 the VEKN [official card texts](http://www.vekn.net/card-lists) and
 [KRCG](https://github.com/lionel-panhaleux/krcg) rulings list.
