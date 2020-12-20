@@ -57,7 +57,7 @@ async def on_message(message: discord.Message):
             for reaction in list(SELECTION_EMOJIS.keys())[: len(candidates)]:
                 await response.add_reaction(reaction)
         except discord.Forbidden:
-            logging.warning("Missing reaction permission")
+            logger.warning("Missing reaction permission")
 
         # Wait 30 seconds for an answer when multiple candidates are found
         def check(reaction, user):
@@ -75,7 +75,7 @@ async def on_message(message: discord.Message):
                 try:
                     await response.clear_reactions()
                 except discord.Forbidden:
-                    logging.warning("Missing message management permission")
+                    logger.warning("Missing message management permission")
             # reaction selected, modify message accordingly
             else:
                 content = candidates[SELECTION_EMOJIS[reaction.emoji] - 1]
@@ -83,7 +83,7 @@ async def on_message(message: discord.Message):
                     await response.edit(**handle_message(content, completion=False))
                 # this should not fail: bots can modify their messages
                 except discord.Forbidden:
-                    logging.warning("Missing edit message permission")
+                    logger.warning("Missing edit message permission")
                     await message.channel.send(
                         **handle_message(content, completion=False)
                     )
@@ -182,7 +182,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
                 ),
                 "footer": {"text": "Click a number as reaction."},
             }
-            logger.info("Choice embed: {}", ", ".join(candidates))
+            logger.info("Choice embed: {}", candidates)
             return {
                 "content": "",
                 "embed": discord.Embed.from_dict(embed),
@@ -276,7 +276,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
         "image": {"url": image_url},
         "footer": {"text": footer},
     }
-    logger.info("Embed for {}", embed.fields["url"])
+    logger.info("Embed for {}", embed["url"])
     return {
         "content": "",
         "embed": discord.Embed.from_dict(embed),
