@@ -4,6 +4,7 @@ graft krcg_api
 prune tests
 exclude Makefile
 exclude dark-pack.png
+exclude bot-example.png
 exclude .markdownlint.json
 
 global-exclude */__pycache__/*
