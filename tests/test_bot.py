@@ -170,7 +170,12 @@ def test_bot():
             },
         ],
         "footer": {"text": "More rulings available, click the title to see them"},
-        "image": {"url": "https://static.krcg.org/card/rotschreck.jpg#2020122018"},
+        "image": {
+            "url": (
+                "https://static.krcg.org/card/rotschreck.jpg"
+                f"#{datetime.datetime.now():%Y%m%d%H}"
+            )
+        },
         "title": "Rötschreck",
         "type": "rich",
         "url": (
