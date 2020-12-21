@@ -1,7 +1,7 @@
 1.12 (unreleased)
 -----------------
 
-- Nothing changed yet.
+- Release 2.0, for alignement wiht KRCG package (no change)
 
 
 1.11 (2020-12-21)
