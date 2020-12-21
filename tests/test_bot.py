@@ -173,5 +173,8 @@ def test_bot():
         "image": {"url": "https://static.krcg.org/card/rotschreck.jpg#2020122018"},
         "title": "Rötschreck",
         "type": "rich",
-        "url": "https://codex-of-the-damned.org/en/card-search.html?card=R%C3%B6tschreck",
+        "url": (
+            "https://codex-of-the-damned.org/en/"
+            "card-search.html?card=R%C3%B6tschreck"
+        ),
     }
