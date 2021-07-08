@@ -1,7 +1,7 @@
 2.3 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Bump KRCG version
 
 
 2.2 (2020-12-30)
