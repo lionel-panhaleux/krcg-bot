@@ -2,16 +2,17 @@
 import asyncio
 import collections
 import datetime
+import logging
 import os
 import re
 import urllib.parse
 
 import discord
 
-from krcg import logging
 from krcg import vtes
 
-logger = logging.logger
+logger = logging.getLogger()
+logging.basicConfig(format="[%(levelname)7s] %(message)s")
 client = discord.Client()
 
 #: response emoji when multiple cards match

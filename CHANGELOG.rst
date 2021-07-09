@@ -1,7 +1,7 @@
 2.5 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Improve logging
 
 
 2.4 (2021-07-08)
