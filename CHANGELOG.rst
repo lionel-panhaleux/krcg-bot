@@ -1,4 +1,4 @@
-2.7 (unreleased)
+2.7 (2021-08-27)
 ----------------
 
 - Bump KRCG version
