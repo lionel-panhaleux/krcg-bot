@@ -21,6 +21,10 @@ For more information please visit [white-wolf.com](http://www.white-wolf.com).
 This bot lets you retrieve cards official text, image and rulings:
 ![Bot Example](https://raw.githubusercontent.com/lionel-panhaleux/krcg-bot/master/bot-example.png)
 
+To call the bot, write `krcg` followed by a card name.
+Partial inputs may yield several results:
+![Partial Input Example](https://raw.githubusercontent.com/eltzimmy/krcg-bot/master/partial-input-example.png)
+
 It is online and free to use,
 [install it on your Discord server](https://discordapp.com/oauth2/authorize?client_id=703921850270613505&scope=bot).
 
