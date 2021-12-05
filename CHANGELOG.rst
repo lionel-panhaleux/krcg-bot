@@ -1,7 +1,7 @@
 2.8 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Update to V5 Anarch (krcg 2.20)
 
 
 2.7 (2021-08-27)

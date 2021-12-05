@@ -95,6 +95,16 @@ def test_bot():
         "title": "What card did you mean ?",
         "type": "rich",
     }
+    # vampire with evolution
+    response = krcg_bot.handle_message("theo bell")
+    assert response["embed"]
+    assert response["embed"].to_dict() == {
+        "color": 16777215,
+        "description": "1: Theo Bell\n2: Theo Bell (ADV)\n3: Theo Bell (G6)",
+        "footer": {"text": "Click a number as reaction."},
+        "title": "What card did you mean ?",
+        "type": "rich",
+    }
     # vampire with comma in the name
     response = krcg_bot.handle_message("tariq")
     assert response["embed"]
@@ -165,11 +175,13 @@ def test_bot():
                     "rec.games.trading-cards.jyhad/WUWh7AdooDU/vojisZMCSnsJ) "
                     "[[ANK 20200130-1]](http://www.vekn.net/forum/rules-questions/"
                     "78400-rotshreck#98821)\n"
-                    "..."
+                    "**... (Click the title for more rulings)**"
                 ),
             },
         ],
-        "footer": {"text": "More rulings available, click the title to see them"},
+        "footer": {
+            "text": "Click the title to submit new rulings or rulings corrections"
+        },
         "image": {
             "url": (
                 "https://static.krcg.org/card/rotschreck.jpg"

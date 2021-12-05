@@ -253,16 +253,14 @@ def handle_message(message: str, completion: bool = True) -> dict:
                 ruling = ruling.replace(reference, f"[{reference}]({link})")
             # discord limits field content to 1024
             # make sure we have the room for 3 dots
-            if len(rulings) + len(ruling) > 1021:
-                rulings += "..."
-                footer = "More rulings available, click the title to see them"
+            if len(rulings) + len(ruling) > 982:
+                rulings += "**... (Click the title for more rulings)**"
                 break
             rulings += f"- {ruling}\n"
         fields.append({"name": "Rulings", "value": rulings, "inline": False})
     # handle title, image, link, color
-    card_name = card.name
     codex_url = "https://codex-of-the-damned.org/en/card-search.html?"
-    codex_url += urllib.parse.urlencode({"card": card_name})
+    codex_url += urllib.parse.urlencode({"card": card.name})
     image_url = card.url
     image_url += f"#{datetime.datetime.now():%Y%m%d%H}"  # timestamp cache busting
     color = COLOR_MAP.get(card_type, DEFAULT_COLOR)
@@ -270,7 +268,7 @@ def handle_message(message: str, completion: bool = True) -> dict:
         color = COLOR_MAP.get(clan, DEFAULT_COLOR)
     embed = {
         "type": "rich",
-        "title": card_name,
+        "title": card.usual_name,
         "url": codex_url,
         "color": color,
         "fields": fields,
