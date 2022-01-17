@@ -1,7 +1,7 @@
 2.9 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Bump KRCG (2.21)
 
 
 2.8 (2021-12-05)
