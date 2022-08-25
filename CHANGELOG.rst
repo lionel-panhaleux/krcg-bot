@@ -1,7 +1,7 @@
 3.1 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Fix message ephemerality by default
 
 
 3.0 (2022-08-25)

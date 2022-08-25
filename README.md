@@ -28,7 +28,7 @@ You can use the optional `public` paramater to your slash command to make the me
 visible for everyone in the channel.
 
 It is online and free to use,
-[install it on your Discord server](https://discordapp.com/oauth2/authorize?client_id=703921850270613505&scope=bot).
+[install it on your Discord server](https://discordapp.com/oauth2/authorize?client_id=703921850270613505&scope=bot%20applications.commands).
 
 ## Contribute
 
