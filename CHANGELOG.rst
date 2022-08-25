@@ -1,7 +1,10 @@
-2.10 (unreleased)
+3.0 (unreleased)
 -----------------
 
-- Nothing changed yet.
+- Switch to slash commands
+- Now works in threads and in the text chat in vocal channels
+- Add buttons to switch vampires between base / advanced / evolution
+- Use disciplines and icons emojis if available on the server
 
 
 2.9 (2022-01-17)

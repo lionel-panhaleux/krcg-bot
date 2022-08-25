@@ -1,93 +1,278 @@
 """Discord Bot."""
 import asyncio
-import collections
 import datetime
 import logging
 import os
 import re
 import urllib.parse
 
-import discord
+import interactions
 
 from krcg import vtes
 
 logger = logging.getLogger()
 logging.basicConfig(format="[%(levelname)7s] %(message)s")
-client = discord.Client()
 
-#: response emoji when multiple cards match
-SELECTION_EMOJIS = collections.OrderedDict(
-    [
-        ("1️⃣", 1),
-        ("2️⃣", 2),
-        ("3️⃣", 3),
-        ("4️⃣", 4),
-        ("5️⃣", 5),
-        ("6️⃣", 6),
-        ("7️⃣", 7),
-        ("8️⃣", 8),
-        ("9️⃣", 9),
-        ("🔟", 10),
-    ]
+bot = interactions.Client(
+    token=os.getenv("DISCORD_TOKEN") or "",
+    intents=interactions.Intents.DEFAULT | interactions.Intents.GUILD_MESSAGE_CONTENT,
 )
 
+#: Disciplines emojis in guilds
+EMOJIS = {}
+EMOJI_NAME_MAP = {
+    "action": "ACTION",
+    "modifier": "ACTION MODIFIER",
+    "reaction": "REACTION",
+    "combat": "COMBAT",
+    "political": "POLITICAL ACTION",
+    "ally": "ALLY",
+    "retainer": "RETAINER",
+    "equipment": "EQUIPMENT",
+    "merged": "MERGED",
+    "flight": "FLIGHT",
+    "conviction": "1 CONVICTION",
+}
+NAME_EMOJI_MAP = {v: k for k, v in EMOJI_NAME_MAP.items()}
 
-@client.event
+#: the library does not cleanup the interactions once they've been used, keep track
+BUTTONS = set()
+
+
+@bot.event
 async def on_ready():
     """Login success informative log."""
-    logger.info("Logged in as {}", client.user)
+    logger.info("Logged in as %s", bot.me.name)
+    results = await asyncio.gather(*(guild.get_all_emoji() for guild in bot.guilds))
+    for guild, emojis in zip(bot.guilds, results):
+        valid_emojis = [
+            emoji
+            for emoji in emojis
+            if emoji.name
+            in vtes.VTES.search_dimensions["discipline"] + list(EMOJI_NAME_MAP.keys())
+        ]
+
+        EMOJIS[guild] = {
+            EMOJI_NAME_MAP.get(emoji.name, emoji.name): emoji.id
+            for emoji in valid_emojis
+        }
+    logger.info("Emojis %s", EMOJIS)
 
 
-@client.event
-async def on_message(message: discord.Message):
+@bot.command(
+    name="card",
+    description="Display VTES cards information",
+    options=[
+        interactions.Option(
+            name="name",
+            description="Card name",
+            type=interactions.OptionType.STRING,
+            required=True,
+            min_length=3,
+            autocomplete=True,
+        ),
+        interactions.Option(
+            name="public",
+            description="share the card with everyone",
+            type=interactions.OptionType.BOOLEAN,
+            required=False,
+        ),
+    ],
+)
+async def card(
+    ctx: interactions.CommandContext,
+    name: str,
+    public: bool = False,
+):
+    if name not in vtes.VTES:
+        await ctx.send("Unknown card: use the completion!", ephemeral=True)
+        return
+    await ctx.defer()  # we need to defer, to avoid an error on ctx.edit
+    card_data = vtes.VTES[name]
+    embeds = _build_embeds(ctx.guild, card_data)
+    components = _build_components(card_data)
+    await ctx.send(
+        embeds=embeds, components=components, ephemeral=None if public else True
+    )
+    # editing message does not work in direct messages just stop there
+    if not ctx.guild:
+        return
+    await asyncio.sleep(60)
+    await ctx.edit(embeds=embeds, components=[])
+
+
+async def switch_card(ctx: interactions.ComponentContext):
+    await ctx.defer()  # we need to defer, to avoid an error on ctx.edit
+    card_id = int(ctx.custom_id[7:])
+    card_data = vtes.VTES[card_id]
+    embeds = _build_embeds(ctx.guild, card_data)
+    # edit just sends a new message in direct messages
+    if ctx.guild:
+        components = _build_components(card_data)
+    else:
+        components = []
+    await ctx.edit(embeds=embeds, components=components)
+    if not ctx.guild:
+        return
+    await asyncio.sleep(60)
+    await ctx.edit(embeds=embeds, components=[])
+
+
+@bot.autocomplete(command="card", name="name")
+async def autocomplete_name(ctx: interactions.CommandContext, name: str = None):
+    if not name:
+        return
+    name = name.lower().strip()
+    try:
+        candidates = vtes.VTES.complete(name)
+    except AttributeError:
+        candidates = []
+    if not candidates:
+        if name in vtes.VTES:
+            candidates = [vtes.VTES[name].name]
+    await ctx.populate([interactions.Choice(name=n, value=n) for n in candidates[:25]])
+
+
+@bot.event(name="on_message_create")
+async def on_message_create(message: interactions.Message):
     """Main message loop."""
-    if message.author == client.user:
+    logger.debug("Got message: %s / %s", message, message.content)
+    if message.author.id == bot.me.id:
         return
 
     if message.content.lower().startswith("krcg "):
-        content = message.content[5:]
-        logger.info("Received: {}", content)
-        # initial message handling. If multiple cards match, candidates are returned
-        # and stored to the COMPLETION_WAITING map
-        response = handle_message(content)
-        candidates = response.pop("candidates", [])
-        response = await message.channel.send(**response)
-        # If they are candidates, add response reactions in the form of
-        # square numbers emoji
-        try:
-            for reaction in list(SELECTION_EMOJIS.keys())[: len(candidates)]:
-                await response.add_reaction(reaction)
-        except discord.Forbidden:
-            logger.warning("Missing reaction permission")
+        await message.reply("This bot switched to slash commands. Use `/card` instead.")
 
-        # Wait 30 seconds for an answer when multiple candidates are found
-        def check(reaction, user):
-            return user == message.author and str(reaction.emoji) in SELECTION_EMOJIS
 
-        while candidates:
-            try:
-                reaction, _user = await client.wait_for(
-                    "reaction_add", timeout=30, check=check
-                )
-            except asyncio.TimeoutError:
-                candidates = []
-                # try to clear reactions if the "message management" permission is up
-                # (this is not the default setting for bots, it will likely fail)
-                try:
-                    await response.clear_reactions()
-                except discord.Forbidden:
-                    logger.warning("Missing message management permission")
-            # reaction selected, modify message accordingly
-            else:
-                content = candidates[SELECTION_EMOJIS[reaction.emoji] - 1]
-                try:
-                    await response.edit(**handle_message(content, completion=False))
-                # this should not fail: bots can modify their messages
-                except discord.Forbidden:
-                    logger.warning("Missing edit message permission")
-                    await message.channel.send(
-                        **handle_message(content, completion=False)
+def _split_text(s, limit):
+    """Utility function to split a text at a convenient spot."""
+    if len(s) < limit:
+        return s, ""
+    index = s.rfind("\n", 0, limit)
+    rindex = index + 1
+    if index < 0:
+        index = s.rfind(" ", 0, limit)
+        rindex = index + 1
+        if index < 0:
+            index = limit
+            rindex = index
+    return s[:index], s[rindex:]
+
+
+def _emoji(guild_emojis, name):
+    server_name = NAME_EMOJI_MAP.get(name, name)
+    return f"<:{server_name}:{guild_emojis[name]}>"
+
+
+def _replace_disciplines(guild: interactions.Guild, text: str) -> str:
+    guild_emojis = EMOJIS.get(guild, {})
+    if not guild_emojis:
+        return text
+    return re.sub(
+        f"\\[({'|'.join(guild_emojis.keys())})\\]",
+        lambda x: _emoji(guild_emojis, x.group(1)),
+        text,
+    )
+
+
+def _build_embeds(guild, card_data):
+    codex_url = "https://codex-of-the-damned.org/en/card-search.html?"
+    codex_url += urllib.parse.urlencode({"card": card_data.name})
+    image_url = card_data.url
+    image_url += f"#{datetime.datetime.now():%Y%m%d%H}"  # timestamp cache busting
+    card_type = "/".join(card_data.types)
+    color = COLOR_MAP.get(card_type, DEFAULT_COLOR)
+    if card_type == "Vampire":
+        color = COLOR_MAP.get(card_data.clans[0], DEFAULT_COLOR)
+
+    embed = interactions.Embed(title=card_data.usual_name, url=codex_url, color=color)
+    embed.set_image(url=image_url)
+    embed.add_field(name="Type", value=card_type, inline=True)
+    if card_data.clans:
+        text = "/".join(card_data.clans or [])
+        if card_data.burn_option:
+            text += " (Burn Option)"
+        if card_data.capacity:
+            text += f" - Capacity {card_data.capacity}"
+        if card_data.group:
+            text += f" - Group {card_data.group}"
+        embed.add_field(name="Clan", value=text, inline=True)
+    if card_data.pool_cost:
+        embed.add_field(name="Cost", value=f"{card_data.pool_cost} Pool", inline=True)
+    if card_data.blood_cost:
+        embed.add_field(name="Cost", value=f"{card_data.blood_cost} Blood", inline=True)
+    if card_data.conviction_cost:
+        embed.add_field(
+            name="Cost",
+            value=f"{card_data.conviction_cost} Conviction",
+            inline=True,
+        )
+    if card_data.crypt and card_data.disciplines:
+        disciplines = [
+            f"<:{d}:{EMOJIS[guild][d]}>" if d in EMOJIS.get(guild, {}) else d
+            for d in reversed(card_data.disciplines)
+        ]
+        embed.add_field(
+            name="Disciplines",
+            value=" ".join(disciplines) or "None",
+            inline=False,
+        )
+    card_text = card_data.card_text.replace("{", "").replace("}", "")
+    card_text = _replace_disciplines(guild, card_text)
+    embed.add_field(
+        name="Card Text",
+        value=card_text,
+        inline=False,
+    )
+    embed.set_footer(
+        "Click the title to submit new rulings or rulings corrections",
+        icon_url="https://static.krcg.org/dark-pack.png",
+    )
+    embeds = [embed]
+
+    if card_data.banned or card_data.rulings["text"]:
+        rulings = ""
+        if card_data.banned:
+            rulings += f"**BANNED since {card_data.banned}**\n"
+        for ruling in card_data.rulings["text"]:
+            # replace reference with markdown link, eg.
+            # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
+            ruling = re.sub(r"{|}", "*", ruling)
+            for reference, link in card_data.rulings["links"].items():
+                ruling = ruling.replace(reference, f"[{reference}]({link})")
+            rulings += f"- {ruling}\n"
+        rulings = _replace_disciplines(guild, rulings)
+        # discord limits field content to 1024
+        if len(rulings) < 1024:
+            embed.add_field(name="Rulings", value=rulings, inline=False)
+        else:
+            while rulings:
+                part, rulings = _split_text(rulings, 4096)
+                embeds.append(
+                    interactions.Embed(
+                        title=f"{card_data.usual_name} — Rulings",
+                        color=color,
+                        description=part,
                     )
+                )
+    logger.info("Displaying %s", card_data.name)
+    return embeds
+
+
+def _build_components(card_data):
+    components = []
+    for i, (key, variant_id) in enumerate(sorted(card_data.variants.items())):
+        custom_id = f"switch-{variant_id}"
+        button = interactions.Button(
+            style=interactions.ButtonStyle.PRIMARY,
+            label="Base" if i == 0 and card_data.adv else key,
+            custom_id=custom_id,
+        )
+        components.append(button)
+        if custom_id not in BUTTONS:
+            BUTTONS.add(custom_id)
+            bot.component(custom_id)(switch_card)
+    return components
 
 
 #: Response embed color depends on card type / clan
@@ -146,148 +331,11 @@ COLOR_MAP = {
 }
 
 
-def handle_message(message: str, completion: bool = True) -> dict:
-    """Message handling
-
-    Args:
-        message: The message received , without prefix
-
-    Returns:
-        Keyword args for the discord channel.send() function.
-        It includes a "candidates" key if multiple cards match.
-    """
-    message = message.lower()
-    # Check for card ID
-    try:
-        message = int(message)
-    except ValueError:
-        pass
-    # Use completion by default
-    if completion:
-        try:
-            candidates = vtes.VTES.complete(message)
-        except AttributeError:
-            candidates = []
-        if len(candidates) == 1:
-            message = candidates[0]
-        elif len(candidates) > 10 and message not in vtes.VTES:
-            logger.info("Too many candidates")
-            return {"content": "Too many candidates, try a more complete card name."}
-        elif 0 < len(candidates) <= 10:
-            embed = {
-                "type": "rich",
-                "title": "What card did you mean ?",
-                "color": DEFAULT_COLOR,
-                "description": "\n".join(
-                    f"{i}: {card}" for i, card in enumerate(candidates, 1)
-                ),
-                "footer": {"text": "Click a number as reaction."},
-            }
-            logger.info("Choice embed: {}", candidates)
-            return {
-                "content": "",
-                "embed": discord.Embed.from_dict(embed),
-                "candidates": candidates,
-            }
-    # Fuzzy match and known abbreviations only if completion did not help
-    if message not in vtes.VTES:
-        logger.info("No match for {}", message)
-        return {"content": "No card match"}
-    # card is found, build fields
-    card = vtes.VTES[message]
-    card_type = "/".join(card.types)
-    clan = "/".join(card.clans or [])
-    fields = [{"name": "Type", "value": card_type, "inline": True}]
-    if card.clans:
-        text = clan
-        if card.burn_option:
-            text += " (Burn Option)"
-        if card.capacity:
-            text += f" - Capacity {card.capacity}"
-        if card.group:
-            text += f" - Group {card.group}"
-        fields.append({"name": "Clan", "value": text, "inline": True})
-    if card.pool_cost:
-        fields.append(
-            {"name": "Cost", "value": f"{card.pool_cost} Pool", "inline": True}
-        )
-    if card.blood_cost:
-        fields.append(
-            {"name": "Cost", "value": f"{card.blood_cost} Blood", "inline": True}
-        )
-    if card.conviction_cost:
-        fields.append(
-            {
-                "name": "Cost",
-                "value": f"{card.conviction_cost} Conviction",
-                "inline": True,
-            }
-        )
-    if card.crypt and card.disciplines:
-        fields.append(
-            {
-                "name": "Disciplines",
-                "value": " ".join(card.disciplines) or "None",
-                "inline": False,
-            }
-        )
-    fields.append(
-        {
-            "name": "Card Text",
-            "value": card.card_text.replace("{", "").replace("}", ""),
-            "inline": False,
-        }
-    )
-    # build rulings field
-    # if need be use the footer to indicate there are more of them available
-    footer = "Click the title to submit new rulings or rulings corrections"
-    if card.banned or card.rulings["text"]:
-        rulings = ""
-        if card.banned:
-            rulings += f"**BANNED since {card.banned}**\n"
-        for ruling in card.rulings["text"]:
-            # replace reference with markdown link, eg.
-            # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
-            ruling = re.sub(r"{|}", "*", ruling)
-            for reference, link in card.rulings["links"].items():
-                ruling = ruling.replace(reference, f"[{reference}]({link})")
-            # discord limits field content to 1024
-            # make sure we have the room for 3 dots
-            if len(rulings) + len(ruling) > 982:
-                rulings += "**... (Click the title for more rulings)**"
-                break
-            rulings += f"- {ruling}\n"
-        fields.append({"name": "Rulings", "value": rulings, "inline": False})
-    # handle title, image, link, color
-    codex_url = "https://codex-of-the-damned.org/en/card-search.html?"
-    codex_url += urllib.parse.urlencode({"card": card.name})
-    image_url = card.url
-    image_url += f"#{datetime.datetime.now():%Y%m%d%H}"  # timestamp cache busting
-    color = COLOR_MAP.get(card_type, DEFAULT_COLOR)
-    if card_type == "Vampire":
-        color = COLOR_MAP.get(clan, DEFAULT_COLOR)
-    embed = {
-        "type": "rich",
-        "title": card.usual_name,
-        "url": codex_url,
-        "color": color,
-        "fields": fields,
-        "image": {"url": image_url},
-        "footer": {"text": footer},
-    }
-    logger.info("Embed for {}", embed["url"])
-    return {
-        "content": "",
-        "embed": discord.Embed.from_dict(embed),
-    }
-
-
 def main():
     """Entrypoint for the Discord Bot."""
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG if os.getenv("DEBUG") else logging.INFO)
     # use latest card texts
     vtes.VTES.load()
-    client.COMPLETION_WAITING = {}
-    client.run(os.getenv("DISCORD_TOKEN"))
+    bot.start()
     # reset log level so as to not mess up tests
     logger.setLevel(logging.NOTSET)
