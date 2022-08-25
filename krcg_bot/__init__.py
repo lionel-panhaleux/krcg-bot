@@ -87,13 +87,12 @@ async def card(
     if name not in vtes.VTES:
         await ctx.send("Unknown card: use the completion!", ephemeral=True)
         return
-    await ctx.defer()  # we need to defer, to avoid an error on ctx.edit
+    ephemeral = None if public else True
+    await ctx.defer(ephemeral)  # we need to defer, to avoid an error on ctx.edit
     card_data = vtes.VTES[name]
     embeds = _build_embeds(ctx.guild, card_data)
     components = _build_components(card_data)
-    await ctx.send(
-        embeds=embeds, components=components, ephemeral=None if public else True
-    )
+    await ctx.send(embeds=embeds, components=components, ephemeral=ephemeral)
     # editing message does not work in direct messages just stop there
     if not ctx.guild:
         return
