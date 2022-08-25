@@ -1,4 +1,4 @@
-3.2 (unreleased)
+3.2 (2022-08-25)
 ----------------
 
 - Fix message update for private messages
