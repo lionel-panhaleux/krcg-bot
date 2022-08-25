@@ -1,7 +1,7 @@
 3.2 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Fix message update for private messages
 
 
 3.1 (2022-08-25)

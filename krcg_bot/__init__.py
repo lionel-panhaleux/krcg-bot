@@ -93,15 +93,14 @@ async def card(
     embeds = _build_embeds(ctx.guild, card_data)
     components = _build_components(card_data)
     await ctx.send(embeds=embeds, components=components, ephemeral=ephemeral)
-    # editing message does not work in direct messages just stop there
-    if not ctx.guild:
+    # editing message does not work in private messages just stop there
+    if not public or not ctx.guild:
         return
     await asyncio.sleep(60)
     await ctx.edit(embeds=embeds, components=[])
 
 
 async def switch_card(ctx: interactions.ComponentContext):
-    await ctx.defer()  # we need to defer, to avoid an error on ctx.edit
     card_id = int(ctx.custom_id[7:])
     card_data = vtes.VTES[card_id]
     embeds = _build_embeds(ctx.guild, card_data)
@@ -111,10 +110,6 @@ async def switch_card(ctx: interactions.ComponentContext):
     else:
         components = []
     await ctx.edit(embeds=embeds, components=components)
-    if not ctx.guild:
-        return
-    await asyncio.sleep(60)
-    await ctx.edit(embeds=embeds, components=[])
 
 
 @bot.autocomplete(command="card", name="name")
