@@ -1,5 +1,5 @@
-3.0 (unreleased)
------------------
+3.0 (2022-08-25)
+----------------
 
 - Switch to slash commands
 - Now works in threads and in the text chat in vocal channels
