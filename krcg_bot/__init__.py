@@ -283,6 +283,8 @@ COLOR_MAP = {
     "Political Action": int("805A3A", 16),
     "Event": int("E85949", 16),
     "Imbued": int("F0974F", 16),
+    "Power": int("BE5B47", 16),
+    "Conviction": int("A95743", 16),
     "Abomination": int("30183C", 16),
     "Ahrimane": int("868A91", 16),
     "Akunanse": int("744F4E", 16),
