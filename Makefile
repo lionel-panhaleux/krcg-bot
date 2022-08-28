@@ -1,6 +1,7 @@
 .PHONY: quality test release update serve clean
 
 quality:
+	isort -c -v .
 	black --check .
 	flake8
 
