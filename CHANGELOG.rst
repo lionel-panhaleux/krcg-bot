@@ -2,7 +2,7 @@
 ----------------
 
 - Fix embed border color for powers and convictions
-
+- Bump KRCG (2.30)
 
 3.2 (2022-08-25)
 ----------------
