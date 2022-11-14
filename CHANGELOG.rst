@@ -1,4 +1,4 @@
-3.3 (unreleased)
+3.3 (2022-11-14)
 ----------------
 
 - Fix embed border color for powers and convictions
