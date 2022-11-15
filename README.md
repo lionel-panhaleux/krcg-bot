@@ -5,6 +5,7 @@
 [![Python version](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](https://opensource.org/licenses/MIT)
 [![Code Style](https://img.shields.io/badge/code%20style-black-black)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 A discord bot to display V:tES cards, using
 the VEKN [official card texts](http://www.vekn.net/card-lists) and

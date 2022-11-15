@@ -1,8 +1,6 @@
 import pytest
 import requests
-
-from krcg import config
-from krcg import vtes
+from krcg import config, vtes
 
 
 def pytest_sessionstart(session):

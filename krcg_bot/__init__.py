@@ -7,7 +7,6 @@ import re
 import urllib.parse
 
 import interactions
-
 from krcg import vtes
 
 logger = logging.getLogger()
