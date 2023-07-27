@@ -6,17 +6,15 @@ import os
 import re
 import urllib.parse
 
-import interactions
+import hikari
 
 from krcg import vtes
 
 logger = logging.getLogger()
 logging.basicConfig(format="[%(levelname)7s] %(message)s")
 
-bot = interactions.Client(
-    token=os.getenv("DISCORD_TOKEN") or "",
-    intents=interactions.Intents.DEFAULT | interactions.Intents.GUILD_MESSAGE_CONTENT,
-)
+bot = hikari.GatewayBot(os.getenv("DISCORD_TOKEN") or "")
+
 
 #: Disciplines emojis in guilds
 EMOJIS = {}
@@ -38,20 +36,25 @@ NAME_EMOJI_MAP = {v: k for k, v in EMOJI_NAME_MAP.items()}
 #: the library does not cleanup the interactions once they've been used, keep track
 BUTTONS = set()
 
+APPLICATION = []
 
-@bot.event
-async def on_ready():
+
+@bot.listen()
+async def on_ready(event: hikari.StartedEvent) -> None:
     """Login success informative log."""
-    logger.info("Logged in as %s", bot.me.name)
-    results = await asyncio.gather(*(guild.get_all_emoji() for guild in bot.guilds))
-    for guild, emojis in zip(bot.guilds, results):
+    logger.info("Logged in as %s", bot.get_me().username)
+    if not APPLICATION:
+        APPLICATION.append(await bot.rest.fetch_application())
+    application: hikari.Application = APPLICATION[-1]
+    guilds = list(bot.rest.fetch_my_guilds())
+    results = await asyncio.gather(*(bot.rest.fetch_guild_emojis(g.id) for g in guilds))
+    for guild, emojis in zip(guilds, results):
         valid_emojis = [
             emoji
             for emoji in emojis
             if emoji.name
             in vtes.VTES.search_dimensions["discipline"] + list(EMOJI_NAME_MAP.keys())
         ]
-
         EMOJIS[guild] = {
             EMOJI_NAME_MAP.get(emoji.name, emoji.name): emoji.id
             for emoji in valid_emojis
