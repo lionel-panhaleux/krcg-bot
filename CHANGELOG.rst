@@ -1,7 +1,8 @@
 3.4 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Bump KRCG (3.0)
+- Bump Discord lib discord-py-interactions (4.4.1)
 
 
 3.3 (2022-11-14)
