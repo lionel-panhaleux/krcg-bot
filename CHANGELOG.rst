@@ -1,7 +1,11 @@
-3.5 (unreleased)
+4.0 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Using hikari
+- The card images are now correctly displayed again
+- New button "make public"
+- New buttons to list cards mentionned in text and rulings
+- History management ("come back" button)
 
 
 3.4 (2023-07-28)

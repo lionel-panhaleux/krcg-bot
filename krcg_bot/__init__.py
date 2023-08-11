@@ -469,7 +469,7 @@ def _build_components(card_data: vtes.cards.Card, public: bool, origin_id: int =
         row.add_interactive_button(
             hikari.ButtonStyle.PRIMARY,
             f"switch-0-{origin_id}",
-            label="<",
+            label="< Back",
         )
     for i, (key, variant_id) in enumerate(sorted(card_data.variants.items())):
         links.add(int(variant_id))
