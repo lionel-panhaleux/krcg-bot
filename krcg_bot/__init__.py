@@ -436,7 +436,7 @@ def _build_embeds(guild_id: hikari.Snowflake, card_data):
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
             for reference in ruling.get("references", []):
                 ruling_text = ruling_text.replace(
-                    reference["text"], f"[[{reference["label"]}]]({reference["url"]})"
+                    reference["text"], f"[[{reference['label']}]]({reference['url']})"
                 )
             rulings += f"- {ruling_text}\n"
         rulings = _replace_disciplines(guild_id, rulings)

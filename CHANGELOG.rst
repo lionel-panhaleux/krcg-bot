@@ -1,7 +1,7 @@
 4.2 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Fix syntax error bug preventing the bot to start
 
 
 4.1 (2024-09-15)
