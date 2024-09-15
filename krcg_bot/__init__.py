@@ -431,15 +431,13 @@ def _build_embeds(guild_id: hikari.Snowflake, card_data):
             # {KRCG News Radio} -> *KRCG News Radio*
             for card in ruling.get("cards", []):
                 ruling_text = ruling_text.replace(
-                    card["text"],
-                    f"*{card['usual_name']}*"
+                    card["text"], f"*{card['usual_name']}*"
                 )
             # replace reference with markdown link, eg.
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
             for reference in ruling.get("references", []):
                 ruling_text = ruling_text.replace(
-                    reference["text"],
-                    f"[[{reference["label"]}]]({reference["url"]})"
+                    reference["text"], f"[[{reference["label"]}]]({reference["url"]})"
                 )
             rulings += f"- {ruling_text}\n"
         rulings = _replace_disciplines(guild_id, rulings)
@@ -497,7 +495,7 @@ def _build_components(card_data: vtes.cards.Card, public: bool, origin_id: int =
         for card in r.get("cards", []):
             if len(ret) >= 5:
                 break
-            card = vtes.VTES[int(card["id"])]    
+            card = vtes.VTES[int(card["id"])]
             if card.id in links:
                 continue
             links.add(int(card.id))
