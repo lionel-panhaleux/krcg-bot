@@ -421,17 +421,27 @@ def _build_embeds(guild_id: hikari.Snowflake, card_data):
     )
     embeds = [embed]
 
-    if card_data.banned or card_data.rulings["text"]:
+    if card_data.banned or card_data.rulings:
         rulings = ""
         if card_data.banned:
             rulings += f"**BANNED since {card_data.banned}**\n"
-        for ruling in card_data.rulings["text"]:
+        for ruling in card_data.rulings:
+            ruling_text = ruling["text"]
+            # replace cards with simple italics, eg.
+            # {KRCG News Radio} -> *KRCG News Radio*
+            for card in ruling.get("cards", []):
+                ruling_text = ruling_text.replace(
+                    card["text"],
+                    f"*{card['usual_name']}*"
+                )
             # replace reference with markdown link, eg.
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
-            ruling = re.sub(r"{|}", "*", ruling)
-            for reference, link in card_data.rulings["links"].items():
-                ruling = ruling.replace(reference, f"[{reference}]({link})")
-            rulings += f"- {ruling}\n"
+            for reference in ruling.get("references", []):
+                ruling_text = ruling_text.replace(
+                    reference["text"],
+                    f"[[{reference["label"]}]]({reference["url"]})"
+                )
+            rulings += f"- {ruling_text}\n"
         rulings = _replace_disciplines(guild_id, rulings)
         # discord limits field content to 1024
         if len(rulings) < 1024:
@@ -483,23 +493,18 @@ def _build_components(card_data: vtes.cards.Card, public: bool, origin_id: int =
         ret.append(row)
     # add links to cards referenced in rulings
     row = bot.rest.build_message_action_row()
-    for text in itertools.chain([card_data.card_text], card_data.rulings["text"]):
-        if len(ret) >= 5:
-            break
-        for card_name in re.findall(r"(?:{|/)[^}/]+(?:}|/)", text):
+    for r in card_data.rulings:
+        for card in r.get("cards", []):
             if len(ret) >= 5:
                 break
-            card_name = card_name[1:-1]
-            if card_name not in vtes.VTES:
-                continue
-            card = vtes.VTES[card_name]
+            card = vtes.VTES[int(card["id"])]    
             if card.id in links:
                 continue
             links.add(int(card.id))
             row.add_interactive_button(
                 hikari.ButtonStyle.SECONDARY,
                 f"switch-{card_data.id}-{card.id}",
-                label=card.name,
+                label=card.usual_name,
             )
             if len(row.components) >= 5:
                 ret.append(row)

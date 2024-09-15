@@ -1,7 +1,7 @@
 4.1 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- New rulings format (KRCG v4)
 
 
 4.0 (2023-08-11)
