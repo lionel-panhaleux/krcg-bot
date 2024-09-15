@@ -1,4 +1,4 @@
-4.2 (unreleased)
+4.2 (2024-09-15)
 ----------------
 
 - Fix syntax error bug preventing the bot to start
