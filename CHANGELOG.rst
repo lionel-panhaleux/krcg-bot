@@ -1,4 +1,4 @@
-4.3 (unreleased)
+4.3 (2025-02-28)
 ----------------
 
 - Bump krcg (V5 Hecata)
