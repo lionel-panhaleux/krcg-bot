@@ -1,6 +1,7 @@
 quality:
     uv run ruff format --check .
     uv run ruff check .
+    uv run mypy krcg_bot
 
 test: quality
     uv run pytest -vvs

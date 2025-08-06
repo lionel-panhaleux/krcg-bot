@@ -7,7 +7,11 @@ import functools
 import logging
 import os
 import re
+import typing
 import urllib.parse
+
+if typing.TYPE_CHECKING:
+    from hikari.api import MessageActionRowBuilder
 
 import hikari
 from hikari.impl.special_endpoints import AutocompleteChoiceBuilder
@@ -48,7 +52,9 @@ class CommandFailed(Exception):
 @bot.listen()
 async def on_ready(event: hikari.StartedEvent) -> None:
     """Login success informative log."""
-    logger.info("Logged in as %s", bot.get_me().username)
+    me = bot.get_me()
+    if me is not None:
+        logger.info("Logged in as %s", me.username)
     application = await bot.rest.fetch_application()
     commands = [
         bot.rest.slash_command_builder("card", "Display card and rulings")
@@ -97,7 +103,9 @@ async def on_ready(event: hikari.StartedEvent) -> None:
 @bot.listen()
 async def on_connected(event: hikari.GuildAvailableEvent) -> None:
     """Connected to a guild."""
-    logger.info("Logged in %s as %s", event.guild.name, bot.get_me().username)
+    me = bot.get_me()
+    if me is not None:
+        logger.info("Logged in %s as %s", event.guild.name, me.username)
     emojis = await bot.rest.fetch_guild_emojis(event.guild.id)
     valid_emojis = [
         emoji
@@ -111,18 +119,25 @@ async def on_connected(event: hikari.GuildAvailableEvent) -> None:
     logger.info("Emojis %s", EMOJIS)
 
 
-async def _interaction_response(interaction, content):
+async def _interaction_response(
+    interaction: hikari.PartialInteraction, content: str
+) -> None:
     """Default response to interaction (in case of error)"""
     try:
-        await interaction.create_initial_response(
-            hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE,
-            content,
-            flags=hikari.MessageFlag.EPHEMERAL,
-            embeds=[],
-            components=[],
-        )
-    # in case the interaction has been acknowledged already, try a follow-up message
-    except hikari.BadRequestError:
+        if hasattr(interaction, "create_initial_response"):
+            await interaction.create_initial_response(
+                hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE,
+                content,
+                flags=hikari.MessageFlag.EPHEMERAL,
+                embeds=[],
+                components=[],
+            )
+        else:
+            # Fallback for interactions that don't support create_initial_response
+            raise TypeError("Incompatible interaction")
+    # in case the interaction has been acknowledged already, or is incompatiable,
+    # try a follow-up message
+    except (hikari.BadRequestError, TypeError):
         await bot.rest.execute_webhook(
             interaction.application_id, interaction.token, content
         )
@@ -149,7 +164,8 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
         },
     )
     try:
-        if event.interaction.type == hikari.InteractionType.APPLICATION_COMMAND:
+        if isinstance(event.interaction, hikari.CommandInteraction):
+            assert event.interaction.type == hikari.InteractionType.APPLICATION_COMMAND
             command = COMMANDS[event.interaction.command_id]
             await command(
                 event.interaction,
@@ -158,15 +174,18 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
                     for option in event.interaction.options or []
                 },
             )
-        elif event.interaction.type == hikari.InteractionType.AUTOCOMPLETE:
-            await autocomplete_name(
-                event.interaction,
-                **{
-                    option.name: option.value
-                    for option in event.interaction.options or []
-                },
-            )
-        elif event.interaction.type == hikari.InteractionType.MESSAGE_COMPONENT:
+        elif isinstance(event.interaction, hikari.AutocompleteInteraction):
+            assert event.interaction.type == hikari.InteractionType.AUTOCOMPLETE
+            options = {
+                option.name: option.value for option in event.interaction.options or []
+            }
+            name = options.get("name")
+            if isinstance(name, str):
+                await autocomplete_name(event.interaction, name)
+            else:
+                await autocomplete_name(event.interaction, None)
+        elif isinstance(event.interaction, hikari.ComponentInteraction):
+            assert event.interaction.type == hikari.InteractionType.MESSAGE_COMPONENT
             component = COMPONENTS[event.interaction.custom_id[:6]]
             await component(event.interaction)
     except CommandFailed as exc:
@@ -184,7 +203,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
         await _interaction_response(event.interaction, "Command error")
 
 
-def main():
+def main() -> None:
     """Entrypoint for the Discord Bot."""
     logger.setLevel(logging.DEBUG if __debug__ else logging.INFO)
     # use latest card texts
@@ -199,10 +218,10 @@ async def card(
     interaction: hikari.CommandInteraction,
     name: str,
     public: bool = False,
-):
+) -> None:
     if name not in vtes.VTES:
         raise CommandFailed("Unknown card: use the completion!")
-    flags = None if public else hikari.MessageFlag.EPHEMERAL
+    flags = hikari.MessageFlag.EPHEMERAL if not public else hikari.MessageFlag.NONE
     card_data = vtes.VTES[name]
     embeds = _build_embeds(interaction.guild_id, card_data)
     components = _build_components(card_data, public)
@@ -222,7 +241,7 @@ async def card(
 
 
 @functools.lru_cache(4096)
-def _autocomplete_cache(name: str):
+def _autocomplete_cache(name: str) -> list[str]:
     """Cached call to try to speed things up."""
     try:
         candidates = vtes.VTES.complete(name)
@@ -230,12 +249,12 @@ def _autocomplete_cache(name: str):
         candidates = []
     if not candidates and name in vtes.VTES:
         candidates = [vtes.VTES[name].name]
-    return candidates[:25]
+    return list(candidates[:25])
 
 
 async def autocomplete_name(
-    interaction: hikari.AutocompleteInteraction, name: str = None
-):
+    interaction: hikari.AutocompleteInteraction, name: str | None = None
+) -> None:
     """Autocomplete a card name"""
     if not name:
         await interaction.create_response([])
@@ -246,7 +265,7 @@ async def autocomplete_name(
     )
 
 
-async def switch_card(interaction: hikari.ComponentInteraction):
+async def switch_card(interaction: hikari.ComponentInteraction) -> None:
     """Switch card (for vampires with multiple versions)."""
     origin_id = None
     ids = interaction.custom_id[7:].split("-")
@@ -293,7 +312,7 @@ async def switch_card(interaction: hikari.ComponentInteraction):
             pass
 
 
-async def make_public(interaction: hikari.ComponentInteraction):
+async def make_public(interaction: hikari.ComponentInteraction) -> None:
     """Repost the message publicly (from an ephemeral)."""
     card_id = int(interaction.custom_id[7:])
     card_data = vtes.VTES[card_id]
@@ -342,15 +361,15 @@ def _split_text(s: str, limit: int) -> tuple[str, str]:
     return s[:index], s[rindex:]
 
 
-def _emoji(guild_emojis: dict[str, hikari.Snowflake], name: str):
+def _emoji(guild_emojis: dict[str, hikari.Snowflake], name: str) -> str:
     """Helper function to get a Discord emoji."""
     server_name = NAME_EMOJI_MAP.get(name, name)
     return f"<:{server_name}:{guild_emojis[name]}>"
 
 
-def _replace_disciplines(guild_id: hikari.Snowflake, text: str) -> str:
+def _replace_disciplines(guild_id: hikari.Snowflake | None, text: str) -> str:
     """Replace disciplines text with discord emojis if available."""
-    guild_emojis = EMOJIS.get(guild_id, {})
+    guild_emojis = EMOJIS.get(guild_id, {}) if guild_id else {}
     if not guild_emojis:
         return text
     return re.sub(
@@ -360,7 +379,9 @@ def _replace_disciplines(guild_id: hikari.Snowflake, text: str) -> str:
     )
 
 
-def _build_embeds(guild_id: hikari.Snowflake, card_data):
+def _build_embeds(
+    guild_id: hikari.Snowflake | None, card_data: vtes.cards.Card
+) -> list[hikari.Embed]:
     """Build the embeds to display a card."""
     codex_url = (
         "https://codex-of-the-damned.org/en/card-search.html?"
@@ -398,8 +419,9 @@ def _build_embeds(guild_id: hikari.Snowflake, card_data):
             inline=True,
         )
     if card_data.crypt and card_data.disciplines:
+        guild_emojis = EMOJIS.get(guild_id, {}) if guild_id else {}
         disciplines = [
-            f"<:{d}:{EMOJIS[guild_id][d]}>" if d in EMOJIS.get(guild_id, {}) else d
+            f"<:{d}:{guild_emojis[d]}>" if d in guild_emojis else d
             for d in reversed(card_data.disciplines)
         ]
         embed.add_field(
@@ -462,7 +484,9 @@ def _build_embeds(guild_id: hikari.Snowflake, card_data):
     return embeds
 
 
-def _build_components(card_data: vtes.cards.Card, public: bool, origin_id: int = None):
+def _build_components(
+    card_data: vtes.cards.Card, public: bool, origin_id: int | None = None
+) -> list[MessageActionRowBuilder]:
     ret = []
     row = bot.rest.build_message_action_row()
     links = set()
@@ -572,7 +596,7 @@ COLOR_MAP = {
 COMMANDS_TO_REGISTER = {
     "card": card,
 }
-COMMANDS = {}
+COMMANDS: dict[hikari.Snowflake, typing.Callable] = {}
 COMPONENTS = {
     "public": make_public,
     "switch": switch_card,

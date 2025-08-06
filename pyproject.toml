@@ -36,4 +36,17 @@ Issues = "http://github.com/lionel-panhaleux/krcg-bot/issues"
 krcg-bot = "krcg_bot:main"
 
 [tool.uv]
-dev-dependencies = ["ruff", "ipython", "pytest"]
+dev-dependencies = ["ruff", "ipython", "pytest", "mypy"]
+
+[tool.mypy]
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "krcg"
+ignore_missing_imports = true
