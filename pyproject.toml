@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krcg-bot"
+version = "4.4.dev0"
+description = "Discord bot for VTES cards"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "lionelpx", email = "lionel.panhaleux@gmail.com" }]
+maintainers = [{ name = "lionelpx", email = "lionel.panhaleux@gmail.com" }]
+keywords = ["vampire", "vtes", "ccg", "discord", "bot"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Environment :: Plugins",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+]
+requires-python = ">=3.10"
+dependencies = ["hikari", "krcg>=4.6", "setuptools", "unidecode"]
+
+[project.urls]
+Homepage = "http://github.com/lionel-panhaleux/krcg-bot"
+Repository = "http://github.com/lionel-panhaleux/krcg-bot"
+Issues = "http://github.com/lionel-panhaleux/krcg-bot/issues"
+
+[project.scripts]
+krcg-bot = "krcg_bot:main"
+
+[tool.uv]
+dev-dependencies = ["ruff", "ipython", "pytest", "just"]

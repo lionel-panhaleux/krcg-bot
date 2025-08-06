@@ -2,8 +2,10 @@
 __pycache__/
 build/
 dist/
-venv/
+.venv/
 *.egg-info/
+uv.lock
+.ruff_cache/
 
 # test
 .pytest_cache/
