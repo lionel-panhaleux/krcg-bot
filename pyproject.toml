@@ -36,4 +36,4 @@ Issues = "http://github.com/lionel-panhaleux/krcg-bot/issues"
 krcg-bot = "krcg_bot:main"
 
 [tool.uv]
-dev-dependencies = ["ruff", "ipython", "pytest", "just"]
+dev-dependencies = ["ruff", "ipython", "pytest"]
