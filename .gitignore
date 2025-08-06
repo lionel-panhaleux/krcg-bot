@@ -6,6 +6,7 @@ dist/
 *.egg-info/
 uv.lock
 .ruff_cache/
+.mypy_cache/
 
 # test
 .pytest_cache/
