@@ -392,10 +392,10 @@ def _build_embeds(
     if card_type == "Vampire":
         color = COLOR_MAP.get(card_data.clans[0], DEFAULT_COLOR)
     embed = hikari.Embed(title=card_data.usual_name, url=codex_url, color=color)
-    image_url = urllib.parse.urlparse(card_data.url)
     # cache busting
-    image_url = image_url._replace(
-        path=f"/bust/{datetime.datetime.now():%Y%m%d%H}" + image_url.path
+    parsed_url = urllib.parse.urlparse(card_data.url)
+    image_url = parsed_url._replace(
+        path=f"/bust/{datetime.datetime.now():%Y%m%d%H}" + parsed_url.path
     ).geturl()
     embed.set_image(image_url)
     embed.add_field(name="Type", value=card_type, inline=True)
