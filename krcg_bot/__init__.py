@@ -10,8 +10,7 @@ import re
 import typing
 import urllib.parse
 
-if typing.TYPE_CHECKING:
-    from hikari.api import MessageActionRowBuilder
+from hikari.api import MessageActionRowBuilder
 
 import hikari
 from hikari.impl.special_endpoints import AutocompleteChoiceBuilder
