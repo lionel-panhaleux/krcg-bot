@@ -109,8 +109,7 @@ async def on_connected(event: hikari.GuildAvailableEvent) -> None:
     valid_emojis = [
         emoji
         for emoji in emojis
-        if emoji.name
-        in vtes.VTES.search_dimensions["discipline"] + list(EMOJI_NAME_MAP.keys())
+        if emoji.name in vtes.VTES.search_dimensions["discipline"] + list(EMOJI_NAME_MAP.keys())
     ]
     EMOJIS[event.guild.id] = {
         EMOJI_NAME_MAP.get(emoji.name, emoji.name): emoji.id for emoji in valid_emojis
@@ -118,9 +117,7 @@ async def on_connected(event: hikari.GuildAvailableEvent) -> None:
     logger.info("Emojis %s", EMOJIS)
 
 
-async def _interaction_response(
-    interaction: hikari.PartialInteraction, content: str
-) -> None:
+async def _interaction_response(interaction: hikari.PartialInteraction, content: str) -> None:
     """Default response to interaction (in case of error)"""
     try:
         if hasattr(interaction, "create_initial_response"):
@@ -137,9 +134,7 @@ async def _interaction_response(
     # in case the interaction has been acknowledged already, or is incompatiable,
     # try a follow-up message
     except (hikari.BadRequestError, TypeError):
-        await bot.rest.execute_webhook(
-            interaction.application_id, interaction.token, content
-        )
+        await bot.rest.execute_webhook(interaction.application_id, interaction.token, content)
 
 
 @bot.listen()
@@ -168,16 +163,11 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
             command = COMMANDS[event.interaction.command_id]
             await command(
                 event.interaction,
-                **{
-                    option.name: option.value
-                    for option in event.interaction.options or []
-                },
+                **{option.name: option.value for option in event.interaction.options or []},
             )
         elif isinstance(event.interaction, hikari.AutocompleteInteraction):
             assert event.interaction.type == hikari.InteractionType.AUTOCOMPLETE
-            options = {
-                option.name: option.value for option in event.interaction.options or []
-            }
+            options = {option.name: option.value for option in event.interaction.options or []}
             name = options.get("name")
             if isinstance(name, str):
                 await autocomplete_name(event.interaction, name)
@@ -382,9 +372,8 @@ def _build_embeds(
     guild_id: hikari.Snowflake | None, card_data: vtes.cards.Card
 ) -> list[hikari.Embed]:
     """Build the embeds to display a card."""
-    codex_url = (
-        "https://codex-of-the-damned.org/en/card-search.html?"
-        + urllib.parse.urlencode({"card": card_data.name})
+    codex_url = "https://codex-of-the-damned.org/en/card-search.html?" + urllib.parse.urlencode(
+        {"card": card_data.name}
     )
     card_type = "/".join(card_data.types)
     color = COLOR_MAP.get(card_type, DEFAULT_COLOR)
@@ -450,9 +439,7 @@ def _build_embeds(
             # replace cards with simple italics, eg.
             # {KRCG News Radio} -> *KRCG News Radio*
             for card in ruling.get("cards", []):
-                ruling_text = ruling_text.replace(
-                    card["text"], f"*{card['usual_name']}*"
-                )
+                ruling_text = ruling_text.replace(card["text"], f"*{card['usual_name']}*")
             # replace reference with markdown link, eg.
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
             for reference in ruling.get("references", []):
