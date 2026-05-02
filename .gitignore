@@ -4,7 +4,6 @@ build/
 dist/
 .venv/
 *.egg-info/
-uv.lock
 .ruff_cache/
 .mypy_cache/
 

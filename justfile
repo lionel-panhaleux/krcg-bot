@@ -6,7 +6,7 @@ default:
 quality:
     uv run ruff format --check
     uv run ruff check
-    uv run mypy krcg_bot
+    uv run mypy src/krcg_bot
 
 # Run tests & quality
 test: quality
@@ -18,7 +18,7 @@ update:
 
 # Serve the bot locally
 serve:
-    source .env && krcg-bot
+    set -a && source .env && set +a && uv run krcg-bot
 
 # Clean build artifacts
 clean-build:
@@ -52,7 +52,7 @@ bump level="minor": check
     uv version --bump "{{ level }}"
     VERSION="$(uv version --short)"
     echo "📝 Committing version ${VERSION}..."
-    git add pyproject.toml
+    git add pyproject.toml uv.lock
     git commit -m "Release ${VERSION}" && git tag "v${VERSION}"
     echo "📤 Pushing to remote..."
     git push origin master --tags

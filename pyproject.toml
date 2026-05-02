@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.7.19,<0.8"]
+build-backend = "uv_build"
 
 [project]
 name = "krcg-bot"
@@ -8,6 +8,7 @@ version = "4.5"
 description = "Discord bot for VTES cards"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "lionelpx", email = "lionel.panhaleux@gmail.com" }]
 maintainers = [{ name = "lionelpx", email = "lionel.panhaleux@gmail.com" }]
 keywords = ["vampire", "vtes", "ccg", "discord", "bot"]
@@ -18,25 +19,26 @@ classifiers = [
     "Operating System :: OS Independent",
     "Environment :: Plugins",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Games/Entertainment",
 ]
-requires-python = ">=3.10"
-dependencies = ["hikari", "krcg>=4.16", "setuptools", "unidecode"]
+requires-python = ">=3.13"
+dependencies = ["hikari", "krcg>=4.16", "unidecode"]
 
 [dependency-groups]
-dev = ["ruff", "ipython", "pytest", "mypy"]
+dev = ["ipython", "mypy", "pytest", "ruff"]
 
 [project.urls]
-Homepage = "http://github.com/lionel-panhaleux/krcg-bot"
-Repository = "http://github.com/lionel-panhaleux/krcg-bot"
-Issues = "http://github.com/lionel-panhaleux/krcg-bot/issues"
+Homepage = "https://github.com/lionel-panhaleux/krcg-bot"
+Repository = "https://github.com/lionel-panhaleux/krcg-bot"
+Issues = "https://github.com/lionel-panhaleux/krcg-bot/issues"
 
 [project.scripts]
 krcg-bot = "krcg_bot:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
 
 [tool.mypy]
 warn_return_any = true
