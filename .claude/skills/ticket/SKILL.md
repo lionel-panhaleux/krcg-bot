@@ -24,7 +24,7 @@ Runs inline in the main conversation ONLY — grilling needs AskUserQuestion, wh
 
 5. **Synthesize.** Draft the ticket per plan-format. Classify tier — strategic criteria are in `CLAUDE.md`.
 
-6. **Land it.** Allocate `T-NNN` per plan-format (collision rule applies), write `tickets/T-NNN.md` (filing record — no status/priority fields), add the PLAN.md line under the chosen section with status `todo` (strategic: `awaiting-sign-off` and a summary to Lionel — or `todo`/`in-progress` directly when Lionel signed off live during grilling, recorded in the ticket), bump the counter. Commit: `T-NNN: filed — <one-line why>`.
+6. **Land it.** Allocate `T-NNN` per plan-format (collision rule applies), write `tickets/T-NNN.md` (filing record — no status/priority fields), add the PLAN.md line under the chosen section with status `todo` (strategic: `awaiting-sign-off` and a summary to Lionel — or `todo`/`in-progress` directly when Lionel signed off live during grilling, recorded in the ticket), bump the counter. Commit: `T-NNN: filed — <one-line why>`. One request yielding several tickets is one commit — `T-NNN, T-NNN, T-NNN: filed — <why>` — since they share the PLAN.md edit.
 
 7. **Standing constraints.** If grilling settled something that outlives the ticket — a rejection, a "not until X" trigger — write it into the operative doc it governs (`refs/<agent>/INDEX.md`, a rule, the code) in the same commit. There is no decisions log: a constraint with no home is not a decision.
 
