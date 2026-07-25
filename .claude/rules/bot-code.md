@@ -20,4 +20,4 @@ Shape:
 - Expected failures raise `CommandFailed(msg)` — the user sees `msg`. Everything else is logged and shows "Command error".
 - Card and rulings data comes from `krcg`. Never hardcode card facts.
 
-Verification: `just quality` must pass. `just test` needs internet and the KRCG static server, and the suite is a stub — a Discord-facing change is only verified by running the bot (`just serve`).
+Verification: `just quality` must pass. `just test` needs internet and the KRCG static server, and the suite is a stub — a Discord-facing change is only verified by running the bot: `just serve` with the krcg dev token in `.env`, against a test guild. The suite never reaches the Discord interface and is not going to mock it.

@@ -25,7 +25,7 @@ Discord bot displaying V:tES cards, texts and rulings, from the VEKN official ca
 ## Approval tiers
 
 - **Routine**: lands when `/ticket` grilling completes.
-- **Strategic** (new user-facing command or surface, dependency/runtime-floor changes, hosting or release-process changes, anything published to PyPI or pushed to the public repo, meaning-changes to constitutional docs — project facts, Working doctrine, plan format): status `awaiting-sign-off` until Lionel approves. Meaning-preserving edits to constitutional docs are routine; their independent review must confirm zero meaning drift.
+- **Strategic** (new user-facing command or surface, dependency/runtime-floor changes, hosting or release-process changes, anything published to PyPI or pushed to the public repo (Lionel, T-003: this holds even when the push is incidental to the ticket's point, such as pushing a workflow to see CI run), meaning-changes to constitutional docs — project facts, Working doctrine, plan format): status `awaiting-sign-off` until Lionel approves. Meaning-preserving edits to constitutional docs are routine; their independent review must confirm zero meaning drift.
 
 ## Map
 
