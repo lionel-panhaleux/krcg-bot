@@ -31,4 +31,4 @@ Claude Code behaviour the harness depends on. External reality: verify against c
 - Exit 1 is a non-blocking error, not a failure. Only 2 blocks.
 
 ## Auto memory
-On by default, machine-local, at `~/.claude/projects/<project>/memory/`, loaded every session, and invisible to `refs/` audits. It is a second home for facts this harness insists on keeping in one place — see the `CLAUDE.md` rule. Set `"autoMemoryEnabled": false` in `.claude/settings.json` if the coordination rule proves insufficient.
+Off here — `"autoMemoryEnabled": false` in `.claude/settings.json`. On by default elsewhere, it writes machine-local notes to `~/.claude/projects/<project>/memory/` and loads them every session: a second home for facts, invisible to `refs/` audits and to git. `refs/` is the record.

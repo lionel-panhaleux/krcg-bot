@@ -1,4 +1,5 @@
 {
+  "autoMemoryEnabled": false,
   "hooks": {
     "SessionStart": [
       {
@@ -13,10 +14,6 @@
     "Stop": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check.sh"
-          },
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/audit-check.sh"

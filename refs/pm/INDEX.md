@@ -10,7 +10,6 @@ Scope: product scope, user value, prioritization, roadmap coherence, ticket qual
 
 ## Shared
 - `refs/shared/project.md` — users, data sources, distribution, governance.
-- `refs/shared/decisions.md` — decisions in force.
 - `refs/shared/plan-format.md` — ticket spec.
 
 ## Grilling angles

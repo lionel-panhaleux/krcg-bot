@@ -25,7 +25,6 @@ Scope: architecture, Discord/hikari integration, upstream `krcg` coupling, packa
 
 ## Shared
 - `refs/shared/project.md` — what the bot is, users, data sources, governance.
-- `refs/shared/decisions.md` — decisions in force.
 
 ## Grilling angles
 - Which Discord API limit does this hit first — rows, field length, the 3s acknowledge budget?
