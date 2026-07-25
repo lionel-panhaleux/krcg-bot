@@ -6,7 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-001 — Move deploy to an in-repo Ansible pipeline — todo — tickets/T-001.md
+T-001 — Move deploy to an in-repo Ansible pipeline — awaiting-sign-off — tickets/T-001.md
 T-002 — Port to krcg 5 — awaiting-sign-off — tickets/T-002.md
 T-003 — Replace the stub suite and repair CI — awaiting-sign-off — tickets/T-003.md
 

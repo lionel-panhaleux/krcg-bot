@@ -27,6 +27,8 @@ dependencies = ["aiohttp", "hikari>=2.5,<3", "krcg>=5.9,<6", "unidecode"]
 
 [dependency-groups]
 dev = ["ipython", "mypy", "pytest", "ruff"]
+# deploy only: kept out of dev so CI and contributors never install Ansible
+deploy = ["ansible"]
 
 [project.urls]
 Homepage = "https://github.com/lionel-panhaleux/krcg-bot"

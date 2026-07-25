@@ -1,0 +1,21 @@
+[Unit]
+Description=krcg-bot
+Documentation=https://github.com/lionel-panhaleux/krcg-bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ service_user }}
+WorkingDirectory={{ app_dir }}
+# krcg caches the corpus under TMPDIR; a /tmp file owned by another user is
+# unwritable, and krcg silently falls back to *reading* it — stale forever
+Environment=TMPDIR={{ cache_dir }}
+# not Environment=: an inline token is readable by anyone who can run systemctl cat
+EnvironmentFile={{ env_file }}
+ExecStart={{ app_dir }}/venv/bin/krcg-bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

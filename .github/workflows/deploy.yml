@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# never two converges at once: the gateway must not be started twice on one token
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_HOST_KEY and ANSIBLE_VAULT_PASSWORD live here
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9
+        with:
+          python-version: "3.13"
+
+      # ship the artifact, not a package index: no PyPI dependency at deploy
+      # time, no git on the host
+      - name: Build the wheel
+        run: uv build --wheel
+
+      # a YAML-valid typo would otherwise surface on the live host, after the
+      # unit has already been overwritten
+      - name: Check the playbook
+        working-directory: ansible
+        run: uv run --group deploy ansible-playbook deploy.yml --syntax-check
+
+      # DEPLOY_HOST and DEPLOY_HOST_KEY are repo *variables*, not secrets —
+      # `secrets.DEPLOY_HOST` resolves to the empty string and fails at connect
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ vars.DEPLOY_HOST_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_HOST_KEY" >> ~/.ssh/known_hosts
+
+      - name: Write the vault password
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault-pass
+          chmod 600 ~/.vault-pass
+
+      - name: Converge
+        working-directory: ansible
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          ANSIBLE_PRIVATE_KEY_FILE: ~/.ssh/id_deploy
+        run: |
+          uv run --group deploy ansible-playbook deploy.yml \
+            --vault-password-file ~/.vault-pass \
+            -e wheel="$(ls ../dist/*.whl)"
+
+      - name: Drop the credentials
+        if: always()
+        run: rm -f ~/.vault-pass ~/.ssh/id_deploy

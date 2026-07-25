@@ -20,6 +20,16 @@ update:
 serve:
     set -a && source .env && set +a && uv run krcg-bot
 
+# Deploy the current build to the bot host (needs DEPLOY_HOST and the vault password)
+deploy: clean-build build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${DEPLOY_HOST:?set DEPLOY_HOST to the bot host address}"
+    vault=()
+    [[ -n "${ANSIBLE_VAULT_PASSWORD_FILE:-}" ]] || vault=(--ask-vault-pass)
+    cd ansible
+    uv run --group deploy ansible-playbook deploy.yml -e wheel="$(ls ../dist/*.whl)" "${vault[@]}"
+
 # Clean build artifacts
 clean-build:
     @echo "🧹 Cleaning build artifacts..."
@@ -61,9 +71,19 @@ bump level="minor": check
 publish:
     @echo "📦 Publishing to PyPI..."
     @UV_PUBLISH_TOKEN="$(tr -d '\n' < ~/.pypi_token)" uv publish
-    @echo "✅ Release completed!"
+    @echo "✅ Package published!"
+
+# Publish the GitHub release for the current version — this is what triggers the deploy
+github-release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION="$(uv version --short)"
+    echo "🚀 Publishing release v${VERSION}..."
+    gh release create "v${VERSION}" --generate-notes
+    echo "✅ Release published — .github/workflows/deploy.yml takes it from here"
 
 release: clean-build check test
     @just bump minor
     @just build
     @just publish
+    @just github-release

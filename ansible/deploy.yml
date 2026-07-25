@@ -1,0 +1,219 @@
+---
+# Install a built wheel onto the bot host and restart the unit.
+#
+#   uv build --wheel
+#   DEPLOY_HOST=<host> ansible-playbook deploy.yml -e wheel=../dist/<name>.whl
+#
+# `just deploy` does both. The token comes from vault.yml; -e discord_token=...
+# overrides it, since extra-vars outrank vars_files.
+- name: Deploy krcg-bot
+  hosts: bot
+  become: true
+  # nothing here reads a fact, and gathering them would beat the input check to
+  # the connection — an empty DEPLOY_HOST should fail with a sentence, not a
+  # "hostname contains invalid characters" from the connection plugin
+  gather_facts: false
+
+  vars:
+    app_dir: /opt/krcg-bot
+    env_dir: /etc/krcg-bot
+    env_file: /etc/krcg-bot/env
+    # krcg caches the corpus to a version-keyed file in TMPDIR. Left at /tmp it
+    # is shared with every other user, and one owned by the previous runtime
+    # user is unwritable: krcg swallows that, falls back to reading it, and
+    # serves a stale corpus for good. Give the service its own.
+    cache_dir: /opt/krcg-bot/cache
+    service_user: krcg-bot
+    # the host python is the distro's (3.11 on Debian 12) and the wheel needs
+    # >=3.13: uv fetches the interpreter instead of the host providing it
+    python_version: "3.13"
+    uv_bin: /usr/local/bin/uv
+    uv_version: "0.11.32"
+    # not root's ~/.local/share: the service user has to be able to exec it
+    uv_python_dir: /opt/uv/python
+    wheel: ""
+
+  vars_files:
+    - vault.yml
+
+  pre_tasks:
+    - name: Check the deploy inputs
+      ansible.builtin.assert:
+        that:
+          - wheel | length > 0
+          - ansible_host | length > 0
+          # defaulted: a missing vars_files is tolerated silently, and an
+          # undefined variable would error past this message
+          - discord_token | default('') | length > 0
+        fail_msg: >-
+          needs a wheel (-e wheel=../dist/krcg_bot-X.Y-py3-none-any.whl),
+          DEPLOY_HOST in the environment, and discord_token from vault.yml
+      delegate_to: localhost
+      become: false
+
+  tasks:
+    - name: Look for uv
+      ansible.builtin.command: "{{ uv_bin }} --version"
+      register: uv_present
+      changed_when: false
+      failed_when: false
+
+    # only when missing: the host may run other services off the same uv, and a
+    # deploy of this bot has no business upgrading their toolchain
+    - name: Fetch the uv installer
+      ansible.builtin.get_url:
+        url: "https://astral.sh/uv/{{ uv_version }}/install.sh"
+        dest: /tmp/uv-install.sh
+        mode: "0755"
+      when: uv_present.rc != 0
+
+    - name: Install uv
+      ansible.builtin.command: /tmp/uv-install.sh
+      environment:
+        UV_INSTALL_DIR: "{{ uv_bin | dirname }}"
+        INSTALLER_NO_MODIFY_PATH: "1"
+      when: uv_present.rc != 0
+      changed_when: true
+
+    - name: Create the service user
+      ansible.builtin.user:
+        name: "{{ service_user }}"
+        system: true
+        shell: /usr/sbin/nologin
+        home: "{{ app_dir }}"
+        create_home: false
+
+    - name: Create the application directory
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0755"
+
+    - name: Create the managed Python directory
+      ansible.builtin.file:
+        path: "{{ uv_python_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create the cache directory
+      ansible.builtin.file:
+        path: "{{ cache_dir }}"
+        state: directory
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0700"
+
+    - name: Check the virtualenv interpreter
+      ansible.builtin.command: "{{ app_dir }}/venv/bin/python -V"
+      register: venv_python
+      changed_when: false
+      failed_when: false
+
+    # rebuilt, not reused, when it is missing or too old: a leftover venv on the
+    # distro python only fails later, as an unreadable pip error
+    - name: Create the virtualenv
+      ansible.builtin.command:
+        cmd: "{{ uv_bin }} venv --python {{ python_version }} {{ app_dir }}/venv"
+      environment:
+        UV_PYTHON_INSTALL_DIR: "{{ uv_python_dir }}"
+      register: venv
+      when: >-
+        venv_python.rc != 0
+        or venv_python.stdout.split()[1] is version(python_version, '<')
+
+    - name: Ship the wheel
+      ansible.builtin.copy:
+        src: "{{ wheel }}"
+        dest: "{{ app_dir }}/{{ wheel | basename }}"
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0644"
+      register: shipped
+
+    # only when the artifact actually changed: a converge that installs nothing
+    # must not restart the gateway, which kills the buttons on live messages
+    # --reinstall or nothing happens: uv (like pip) skips a wheel whose version
+    # is already installed and still exits 0, so a same-version deploy would
+    # report success and leave the old code running
+    - name: Install the wheel
+      ansible.builtin.command:
+        cmd: >-
+          {{ uv_bin }} pip install --reinstall --python {{ app_dir }}/venv/bin/python
+          {{ app_dir }}/{{ wheel | basename }}
+      environment:
+        UV_PYTHON_INSTALL_DIR: "{{ uv_python_dir }}"
+      when: shipped is changed or venv is changed
+      notify: Restart krcg-bot
+
+    - name: Create the environment directory
+      ansible.builtin.file:
+        path: "{{ env_dir }}"
+        state: directory
+        owner: root
+        group: "{{ service_user }}"
+        mode: "0750"
+
+    # backup: the unit this replaces carries the live token inline, and on the
+    # first converge that is the only copy of it on the host
+    - name: Write the token
+      ansible.builtin.copy:
+        content: "DISCORD_TOKEN={{ discord_token }}\n"
+        dest: "{{ env_file }}"
+        owner: root
+        group: "{{ service_user }}"
+        mode: "0640"
+        backup: true
+      no_log: true
+      notify: Restart krcg-bot
+
+    - name: Install the systemd unit
+      ansible.builtin.template:
+        src: krcg-bot.service.j2
+        dest: /etc/systemd/system/krcg-bot.service
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: Restart krcg-bot
+
+    - name: Enable and start the service
+      ansible.builtin.systemd_service:
+        name: krcg-bot
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  post_tasks:
+    # Type=simple means systemd calls the unit active the moment it forks, so
+    # this only records the restart count to compare against
+    - name: Note the running unit
+      ansible.builtin.systemd_service:
+        name: krcg-bot
+      register: unit
+      changed_when: false
+
+    - name: Let it settle
+      ansible.builtin.wait_for:
+        timeout: 20
+
+    # Restart=always means a crash-looping bot passes through "active" between
+    # restarts: the only honest check is that it is still the same run afterwards
+    - name: Check it stayed up
+      ansible.builtin.systemd_service:
+        name: krcg-bot
+      register: settled
+      failed_when: >-
+        settled.status.ActiveState != "active"
+        or settled.status.NRestarts != unit.status.NRestarts
+      changed_when: false
+
+  handlers:
+    - name: Restart krcg-bot
+      ansible.builtin.systemd_service:
+        name: krcg-bot
+        state: restarted
+        daemon_reload: true

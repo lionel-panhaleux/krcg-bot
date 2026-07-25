@@ -1,0 +1,8 @@
+# The host address is not committed: this repo is public. It comes from the
+# DEPLOY_HOST repo variable in CI (a *variable*, not a secret — so it is not
+# masked in Actions logs), and from the environment on the laptop path.
+bot:
+  hosts:
+    gravelines:
+      ansible_host: "{{ lookup('env', 'DEPLOY_HOST') }}"
+      ansible_user: "{{ lookup('env', 'DEPLOY_USER') | default('deploy', true) }}"
