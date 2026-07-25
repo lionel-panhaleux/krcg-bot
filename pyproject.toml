@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Games/Entertainment",
 ]
 requires-python = ">=3.13"
-dependencies = ["hikari", "krcg>=4.16", "unidecode"]
+dependencies = ["aiohttp", "hikari>=2.5,<3", "krcg>=5.9,<6", "unidecode"]
 
 [dependency-groups]
 dev = ["ipython", "mypy", "pytest", "ruff"]
@@ -48,7 +48,3 @@ disallow_untyped_decorators = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 strict_equality = true
-
-[[tool.mypy.overrides]]
-module = "krcg"
-ignore_missing_imports = true

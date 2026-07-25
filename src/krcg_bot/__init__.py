@@ -12,15 +12,20 @@ import urllib.parse
 
 from hikari.api import MessageActionRowBuilder
 
+import aiohttp
 import hikari
 from hikari.impl.special_endpoints import AutocompleteChoiceBuilder
 
-from krcg import vtes
+import krcg
+import krcg.models
 
 logger = logging.getLogger()
 logging.basicConfig(format="[%(levelname)7s] %(message)s")
 
 bot = hikari.GatewayBot(os.getenv("DISCORD_TOKEN") or "")
+
+#: The card corpus, loaded at startup by load_cards()
+CARDS: krcg.CardDict = krcg.CardDict()
 
 #: Remove buttons after that many seconds
 COMPONENTS_TIMEOUT = 300
@@ -106,11 +111,11 @@ async def on_connected(event: hikari.GuildAvailableEvent) -> None:
     if me is not None:
         logger.info("Logged in %s as %s", event.guild.name, me.username)
     emojis = await bot.rest.fetch_guild_emojis(event.guild.id)
-    valid_emojis = [
-        emoji
-        for emoji in emojis
-        if emoji.name in vtes.VTES.search_dimensions["discipline"] + list(EMOJI_NAME_MAP.keys())
-    ]
+    # emojis named for the convention (flight) or for the card text token (FLIGHT)
+    valid_names = (
+        set(CARDS.search_dimensions["discipline"]) | set(EMOJI_NAME_MAP) | set(NAME_EMOJI_MAP)
+    )
+    valid_emojis = [emoji for emoji in emojis if emoji.name in valid_names]
     EMOJIS[event.guild.id] = {
         EMOJI_NAME_MAP.get(emoji.name, emoji.name): emoji.id for emoji in valid_emojis
     }
@@ -192,11 +197,19 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
         await _interaction_response(event.interaction, "Command error")
 
 
+async def load_cards() -> None:
+    """Load the card corpus from the KRCG static server."""
+    global CARDS
+    async with aiohttp.ClientSession() as session:
+        CARDS = await krcg.load_online(session)
+    logger.info("Loaded %s cards", len(CARDS))
+
+
 def main() -> None:
     """Entrypoint for the Discord Bot."""
     logger.setLevel(logging.DEBUG if __debug__ else logging.INFO)
     # use latest card texts
-    vtes.VTES.load()
+    asyncio.run(load_cards())
     bot.run()
     # reset log level so as to not mess up tests
     logger.setLevel(logging.NOTSET)
@@ -208,10 +221,10 @@ async def card(
     name: str,
     public: bool = False,
 ) -> None:
-    if name not in vtes.VTES:
+    if name not in CARDS:
         raise CommandFailed("Unknown card: use the completion!")
     flags = hikari.MessageFlag.EPHEMERAL if not public else hikari.MessageFlag.NONE
-    card_data = vtes.VTES[name]
+    card_data = CARDS[name]
     embeds = _build_embeds(interaction.guild_id, card_data)
     components = _build_components(card_data, public)
     await interaction.create_initial_response(
@@ -232,20 +245,21 @@ async def card(
 @functools.lru_cache(4096)
 def _autocomplete_cache(name: str) -> list[str]:
     """Cached call to try to speed things up."""
-    try:
-        candidates = vtes.VTES.complete(name)
-    except AttributeError:
-        candidates = []
-    if not candidates and name in vtes.VTES:
-        candidates = [vtes.VTES[name].name]
-    return list(candidates[:25])
+    # not CARDS.complete(): it caps at 10 candidates, discord takes 25
+    cards = CARDS.search_index.name.search_flat(name, 25)
+    candidates = [card.full_name for card in cards]
+    if not candidates and name in CARDS:
+        candidates = [CARDS[name].full_name]
+    return candidates
 
 
 async def autocomplete_name(
     interaction: hikari.AutocompleteInteraction, name: str | None = None
 ) -> None:
     """Autocomplete a card name"""
-    if not name:
+    # an autocomplete interaction has no create_initial_response: the error funnel
+    # cannot answer it, so never let an unloaded corpus raise here
+    if not name or not CARDS:
         await interaction.create_response([])
         return
     candidates = _autocomplete_cache(name)
@@ -262,7 +276,7 @@ async def switch_card(interaction: hikari.ComponentInteraction) -> None:
         origin_id = int(ids.pop(0))
     new_id = int(ids.pop(0))
     logger.debug("SWITCH from %s to %s", origin_id, new_id)
-    card_data = vtes.VTES[new_id]
+    card_data = CARDS[new_id]
     embeds = _build_embeds(interaction.guild_id, card_data)
     ephemeral = interaction.message.flags & hikari.MessageFlag.EPHEMERAL
     # no history management on public messages, we create a new message
@@ -304,7 +318,7 @@ async def switch_card(interaction: hikari.ComponentInteraction) -> None:
 async def make_public(interaction: hikari.ComponentInteraction) -> None:
     """Repost the message publicly (from an ephemeral)."""
     card_id = int(interaction.custom_id[7:])
-    card_data = vtes.VTES[card_id]
+    card_data = CARDS[card_id]
     embeds = _build_embeds(interaction.guild_id, card_data)
     components = _build_components(card_data, True) if interaction.guild_id else []
     # work around to delete the original ephemeral
@@ -368,56 +382,49 @@ def _replace_disciplines(guild_id: hikari.Snowflake | None, text: str) -> str:
     )
 
 
-def _build_embeds(
-    guild_id: hikari.Snowflake | None, card_data: vtes.cards.Card
-) -> list[hikari.Embed]:
+def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> list[hikari.Embed]:
     """Build the embeds to display a card."""
     codex_url = "https://codex-of-the-damned.org/en/card-search.html?" + urllib.parse.urlencode(
-        {"card": card_data.name}
+        {"card": card_data.full_name}
     )
     card_type = "/".join(card_data.types)
     color = COLOR_MAP.get(card_type, DEFAULT_COLOR)
-    if card_type == "Vampire":
-        color = COLOR_MAP.get(card_data.clans[0], DEFAULT_COLOR)
-    embed = hikari.Embed(title=card_data.usual_name, url=codex_url, color=color)
+    if isinstance(card_data, krcg.CryptCard):
+        color = COLOR_MAP.get(card_data.clan, color)
+    embed = hikari.Embed(title=card_data.unique_name, url=codex_url, color=color)
     # cache busting
     parsed_url = urllib.parse.urlparse(card_data.url)
     image_url = parsed_url._replace(
         path=f"/bust/{datetime.datetime.now():%Y%m%d%H}" + parsed_url.path
     ).geturl()
     embed.set_image(image_url)
+    if isinstance(card_data, krcg.LibraryCard) and card_data.burn_option:
+        card_type += " (Burn Option)"
     embed.add_field(name="Type", value=card_type, inline=True)
-    if card_data.clans:
-        text = "/".join(card_data.clans or [])
-        if card_data.burn_option:
-            text += " (Burn Option)"
+    if isinstance(card_data, krcg.CryptCard):
+        text = card_data.clan
         if card_data.capacity:
             text += f" - Capacity {card_data.capacity}"
         if card_data.group:
-            text += f" - Group {card_data.group}"
+            text += f" - Group {card_data.group.removeprefix('G')}"
         embed.add_field(name="Clan", value=text, inline=True)
-    if card_data.pool_cost:
-        embed.add_field(name="Cost", value=f"{card_data.pool_cost} Pool", inline=True)
-    if card_data.blood_cost:
-        embed.add_field(name="Cost", value=f"{card_data.blood_cost} Blood", inline=True)
-    if card_data.conviction_cost:
-        embed.add_field(
-            name="Cost",
-            value=f"{card_data.conviction_cost} Conviction",
-            inline=True,
-        )
-    if card_data.crypt and card_data.disciplines:
-        guild_emojis = EMOJIS.get(guild_id, {}) if guild_id else {}
-        disciplines = [
-            f"<:{d}:{guild_emojis[d]}>" if d in guild_emojis else d
-            for d in reversed(card_data.disciplines)
-        ]
-        embed.add_field(
-            name="Disciplines",
-            value=" ".join(disciplines) or "None",
-            inline=False,
-        )
-    card_text = card_data.card_text.replace("{", "").replace("}", "").replace("/", "*")
+        if card_data.disciplines:
+            guild_emojis = EMOJIS.get(guild_id, {}) if guild_id else {}
+            disciplines = [
+                f"<:{d}:{guild_emojis[d]}>" if d in guild_emojis else d
+                for d in reversed(card_data.disciplines)
+            ]
+            embed.add_field(name="Disciplines", value=" ".join(disciplines), inline=False)
+    elif isinstance(card_data, krcg.LibraryCard):
+        if card_data.clan_requirement:
+            embed.add_field(name="Clan", value="/".join(card_data.clan_requirement), inline=True)
+        if card_data.cost:
+            embed.add_field(
+                name="Cost", value=f"{card_data.cost.value} {card_data.cost.type}", inline=True
+            )
+    # cards are marked <Card Name>, italics /like this/: both render as italics
+    card_text = re.sub(r"<([^>]+)>", r"*\1*", card_data.text)
+    card_text = re.sub(r"/([^/]+)/", r"*\1*", card_text)
     card_text = _replace_disciplines(guild_id, card_text)
     embed.add_field(
         name="Card Text",
@@ -435,16 +442,14 @@ def _build_embeds(
         if card_data.banned:
             rulings += f"**BANNED since {card_data.banned}**\n"
         for ruling in card_data.rulings:
-            ruling_text = ruling["text"]
             # replace cards with simple italics, eg.
             # {KRCG News Radio} -> *KRCG News Radio*
-            for card in ruling.get("cards", []):
-                ruling_text = ruling_text.replace(card["text"], f"*{card['usual_name']}*")
+            ruling_text = re.sub(r"\{([^}]+)\}", r"*\1*", ruling.text)
             # replace reference with markdown link, eg.
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
-            for reference in ruling.get("references", []):
+            for reference in ruling.references:
                 ruling_text = ruling_text.replace(
-                    reference["text"], f"[[{reference['label']}]]({reference['url']})"
+                    reference.text, f"[[{reference.label}]]({reference.url})"
                 )
             rulings += f"- {ruling_text}\n"
         rulings = _replace_disciplines(guild_id, rulings)
@@ -456,22 +461,22 @@ def _build_embeds(
                 part, rulings = _split_text(rulings, 4096)
                 embeds.append(
                     hikari.Embed(
-                        title=f"{card_data.usual_name} — Rulings",
+                        title=f"{card_data.unique_name} — Rulings",
                         color=color,
                         description=part,
                     )
                 )
-    logger.info("Displaying %s", card_data.name)
+    logger.info("Displaying %s", card_data.full_name)
     logger.debug(
         "Embeds for %s: %s",
-        card_data.name,
+        card_data.full_name,
         [bot.entity_factory.serialize_embed(e) for e in embeds],
     )
     return embeds
 
 
 def _build_components(
-    card_data: vtes.cards.Card, public: bool, origin_id: int | None = None
+    card_data: krcg.Card, public: bool, origin_id: int | None = None
 ) -> list[MessageActionRowBuilder]:
     ret = []
     row = bot.rest.build_message_action_row()
@@ -489,29 +494,28 @@ def _build_components(
             f"switch-0-{origin_id}",
             label="< Back",
         )
-    for i, (key, variant_id) in enumerate(sorted(card_data.variants.items())):
-        links.add(int(variant_id))
+    for variant in sorted(card_data.variants, key=lambda v: v.suffix):
+        links.add(variant.id)
         row.add_interactive_button(
             hikari.ButtonStyle.PRIMARY,
-            f"switch-{variant_id}",
-            label="Base" if i == 0 and card_data.adv else key,
+            f"switch-{variant.id}",
+            label="Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix,
         )
     if len(row.components):
         ret.append(row)
     # add links to cards referenced in rulings
     row = bot.rest.build_message_action_row()
     for r in card_data.rulings:
-        for card in r.get("cards", []):
+        for card in r.cards:
             if len(ret) >= 5:
                 break
-            card = vtes.VTES[int(card["id"])]
             if card.id in links:
                 continue
-            links.add(int(card.id))
+            links.add(card.id)
             row.add_interactive_button(
                 hikari.ButtonStyle.SECONDARY,
                 f"switch-{card_data.id}-{card.id}",
-                label=card.usual_name,
+                label=card.unique_name,
             )
             if len(row.components) >= 5:
                 ret.append(row)
@@ -526,7 +530,7 @@ DEFAULT_COLOR = "#FFFFFF"
 COLOR_MAP = {
     "Master": "#35624E",
     "Action": "#2A4A5D",
-    "Modifier": "#4B4636",
+    "Action Modifier": "#4B4636",
     "Reaction": "#455773",
     "Combat": "#6C221C",
     "Retainer": "#9F613C",
@@ -540,25 +544,26 @@ COLOR_MAP = {
     "Abomination": "#30183C",
     "Ahrimane": "#868A91",
     "Akunanse": "#744F4E",
-    "Assamite": "#E9474A",
     "Baali": "#A73C38",
+    "Banu Haqim": "#E9474A",
     "Blood Brother": "#B65A47",
     "Brujah": "#2C2D57",
     "Brujah antitribu": "#39282E",
     "Caitiff": "#582917",
     "Daughter of Cacophony": "#FCEF9B",
-    "Follower of Set": "#AB9880",
     "Gangrel": "#2C342E",
     "Gangrel antitribu": "#2A171A",
     "Gargoyle": "#574B45",
     "Giovanni": "#1F2229",
     "Guruhi": "#1F2229",
     "Harbinger of Skulls": "#A2A7A6",
+    "Hecata": "#1F2229",
     "Ishtarri": "#865043",
     "Kiasyd": "#916D32",
     "Lasombra": "#C5A259",
     "Malkavian": "#C5A259",
     "Malkavian antitribu": "#C5A259",
+    "Ministry": "#AB9880",
     "Nagaraja": "#D17D58",
     "Nosferatu": "#5C5853",
     "Nosferatu antitribu": "#442B23",

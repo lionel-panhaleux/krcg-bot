@@ -1,18 +1,21 @@
-import pytest
-import requests
+import asyncio
 
-from krcg import config
-from krcg import vtes
+import aiohttp
+import pytest
+
+#: krcg.load_online falls back to a /tmp pickle then to packaged data, silently:
+#: probe first, so the suite fails rather than testing anything but the live corpus
+CARDS_URL = "https://static.krcg.org/data/v5/vtes.json"
+
+
+async def _probe_corpus() -> None:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(CARDS_URL, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            response.raise_for_status()
 
 
 def pytest_sessionstart(session):
-    # Do not launch tests is there is no proper Internet connection.
     try:
-        requests.get("http://www.google.com", timeout=1)
-    except requests.exceptions.RequestException:
-        pytest.fail("No internet connection")
-    try:
-        requests.get(config.KRCG_STATIC_SERVER, timeout=1)
-    except requests.exceptions.RequestException:
-        pytest.fail("KRCG website not available")
-    vtes.VTES.load()
+        asyncio.run(_probe_corpus())
+    except (aiohttp.ClientError, TimeoutError) as exc:
+        pytest.fail(f"KRCG static server not available: {exc}")
