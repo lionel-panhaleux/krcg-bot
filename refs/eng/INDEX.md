@@ -22,12 +22,15 @@ Scope: architecture, Discord/hikari integration, upstream `krcg` coupling, packa
 
 ## Workflow
 - `just quality` — ruff format check, ruff check, mypy. `just test` — quality then pytest. `just serve` — run locally from `.env`.
-- Tests: `tests/conftest.py` probes the KRCG static corpus URL and fails the session if it does not answer — `load_online`'s silent fallback would otherwise test the packaged data; `tests/test_bot.py` is a stub.
+- Tests: `tests/conftest.py` sets a dummy `DISCORD_TOKEN` before importing `krcg_bot` (hikari parses the token at import, so the module is otherwise unimportable) and exposes the corpus as the session-scoped `cards` fixture. While it loads, every krcg binding that yields local data is patched to raise: `load_online` swallows failures and falls back to a `/tmp` pickle or the packaged CSVs, which pass the whole suite and even carry the same card count. Nothing on the result tells them apart, so the fallback is made loud instead — on the live path none of those bindings is called. Without it CI is green on offline data, and CI is the one place with no pickle.
+- `tests/test_bot.py` asserts shape and Discord limits, never card text, and picks its cards by shape via `find()`, never by name: upstream renames cards more often than it changes what a card is. Three tests sweep the whole corpus (embed limits, component limits, autocomplete reachability); the rest are single-card.
+- Mutation-checked, and kept that way: disabling `_replace_disciplines`, the `<Name>`/`/italics/` markup, the ruling-link dedupe, the autocomplete cap or its `value`, the crypt Group, the library clan requirement, the codex `card=` param, the colour map, the Dark Pack footer, the image, or swapping the live load for a local one each reds it.
+- What the suite cannot catch: it never reaches the Discord interface. `FakeInteraction` stands in for `AutocompleteInteraction` only — pinned to hikari's signature by a test, since a fake that drifts keeps the suite green while autocomplete breaks. The `card`/`switch_card`/`make_public` handlers, and so the `HISTORY` back-stack, have no coverage. The ≤5-rows, ≤5-buttons and ≤80-char-label assertions are all inert today: the corpus peaks at 4 rows, 2 variants and 35-char labels.
 - Tests run against the **live corpus**, always. A committed card fixture was proposed and rejected (Lionel, T-003): tests assert against the data the bot actually serves. Consequence to accept, not fix: the suite needs the network, and a KRCG static-server outage reds unrelated PRs.
 - Manual verification of Discord-facing changes — krcg dev token, `.env`, test guild: `.claude/rules/bot-code.md` §Verification, which is its home and loads when the code is touched.
-- CI: `.github/workflows/test.yml` on PRs and pushes to master — uv, py3.13, `just quality` + `just test`. Broken as of T-003: `origin/master` still has the old `static.yml`, red since 2025-08.
+- CI: `.github/workflows/test.yml` on PRs and pushes to master — uv, py3.13, then ruff/mypy/pytest called directly. Never through `just`: it is neither a declared dependency nor on the runner, and that is what reds every run. Unverified until pushed — `origin/master` still carries the old `static.yml` ("Validation"), red since 2025-08; the deletion is committed locally.
 - Release (Lionel only): `just release` = clean, master + clean-tree check, test, `uv version --bump minor`, commit `Release X.Y`, tag, push, build, publish to PyPI. `CHANGELOG.md` is hand-written, newest first.
-- **No release while the suite is a stub or CI is red** (Lionel, T-003). Gate, not preference.
+- **No release until CI is green on the remote** (Lionel, T-003). Gate, not preference. The suite half of that gate is met; the CI half stays open until master is pushed and the run passes.
 - Hosting: PyPI install in a venv, `DISCORD_TOKEN` in the environment, systemd unit with `Restart=always` (README has the unit).
 - Deploy automation lives in this repo, not in server-setup (Lionel, T-001): server-setup ships only `nginx_site` and `postgres_db`, and a gateway bot has no listener and no database. That rejection is the standing part; the mechanics are T-001's.
 
@@ -39,5 +42,5 @@ Scope: architecture, Discord/hikari integration, upstream `krcg` coupling, packa
 - What does it cost at startup and in memory, given the whole corpus is resident?
 - Does it survive a restart, and what happens to live components and `HISTORY` if not?
 - What does it assume about upstream `krcg` (data shape, rulings format, version floor) — and how does it fail when that changes?
-- How is it verified? The suite is a stub: name the manual check, or the test that stops being a stub.
+- How is it verified? The suite asserts shape over the live corpus and never touches Discord: name the test it adds, or the manual check that covers what tests cannot.
 - Does it still work with zero server configuration (no custom emojis, no permissions beyond the default)?

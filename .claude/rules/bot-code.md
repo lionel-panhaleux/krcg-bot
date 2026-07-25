@@ -19,5 +19,6 @@ Shape:
 - Every card answer holds its handler in `asyncio.sleep(COMPONENTS_TIMEOUT)` before stripping components. Anything you add after that sleep runs 5 minutes later, in a task a restart kills.
 - Expected failures raise `CommandFailed(msg)` — the user sees `msg`. Everything else is logged and shows "Command error".
 - Card and rulings data comes from `krcg`. Never hardcode card facts.
+- An autocomplete interaction has no `create_initial_response`, so the error funnel cannot answer it: a raise there hangs the completion. Never let one escape.
 
-Verification: `just quality` must pass. `just test` needs internet and the KRCG static server, and the suite is a stub — a Discord-facing change is only verified by running the bot: `just serve` with the krcg dev token in `.env`, against a test guild. The suite never reaches the Discord interface and is not going to mock it.
+Verification: `just quality` must pass. `just test` needs internet and the KRCG static server: it asserts shape and limits over the live corpus, and picks its cards by shape, never by name — assert what a card *is*, never its text. It reaches no Discord interface; the only stand-in is `FakeInteraction`, for autocomplete, pinned to hikari's signature by a test. A Discord-facing change is still only verified by running the bot: `just serve` with the krcg dev token in `.env`, against a test guild.

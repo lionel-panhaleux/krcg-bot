@@ -8,19 +8,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # the suite downloads the live corpus: fail fast rather than hang on a slow server
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v9
         with:
           python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Quality
-        run: uv run just quality
+      # the tools directly, not `just`: it is neither a declared dependency nor
+      # on the runner, and adding one to fix a workflow is the wrong trade
+      - name: Format
+        run: uv run ruff format --check
 
+      - name: Lint
+        run: uv run ruff check
+
+      - name: Types
+        run: uv run mypy src/krcg_bot
+
+      # needs the network: the suite runs against the live KRCG corpus
       - name: Test
-        run: uv run just test
+        run: uv run pytest -v
