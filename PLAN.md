@@ -1,12 +1,12 @@
 # PLAN
 
-next-ticket-id: T-009 · Entries land only via `/ticket` (format: `refs/shared/plan-format.md`).
+next-ticket-id: T-010 · Entries land only via `/ticket` (format: `refs/shared/plan-format.md`).
 
 Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets append ` ← T-NNN`
 
 ## Now
 
-(empty)
+T-009 — Stop card navigation stranding the reader — todo — tickets/T-009.md
 
 ## Next
 
