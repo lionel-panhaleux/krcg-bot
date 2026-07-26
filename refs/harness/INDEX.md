@@ -13,6 +13,7 @@ Platform behaviour this all rests on — subagent context, tool filters, hook se
 - Product and domain knowledge that is true of the codebase belongs in the code or in `refs/`, never in both.
 - Pick the mechanism by when the knowledge must be live, not by how important it feels (`platform.md` §Mechanism selection). A constraint that must hold while editing a file is a path-scoped rule, not a refs line someone has to remember to read; a rule that must hold regardless of judgement is a hook, not prose.
 - Audit scope: changed subtree + everything pointing at it; full-tree when constitutional docs (project facts, Working doctrine, plan format) or CLAUDE.md changed, or on explicit call. Mark completion with a `harness-audit: <scope>` commit (`--allow-empty` if clean); the Stop hook (`.claude/hooks/audit-check.sh`) blocks session end until marked.
+- `README.md` is **out of audit scope on purpose** (Lionel, after T-005): it is written for humans, not agents, and the hook watches `CLAUDE.md`, `refs/` and `.claude/` only. Its Python badge said 3.8 for years and nothing fired — that is the accepted cost, not a leak to close. Do not re-file widening the filter.
 
 ## Review checklist (run on audit)
 1. Any agent def >40 lines, holding knowledge, or duplicating `refs/shared/project.md` facts?
