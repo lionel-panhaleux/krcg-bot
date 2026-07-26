@@ -1,6 +1,5 @@
 # KRCG Discord Bot
 
-[![PyPI version](https://badge.fury.io/py/krcg-bot.svg)](https://badge.fury.io/py/krcg-bot)
 [![Test](https://github.com/lionel-panhaleux/krcg-bot/actions/workflows/test.yml/badge.svg)](https://github.com/lionel-panhaleux/krcg-bot/actions/workflows/test.yml)
 [![Python version](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](https://opensource.org/licenses/MIT)
@@ -38,46 +37,24 @@ This bot is an offspring of the [KRCG](https://github.com/lionel-panhaleux/krcg)
 python package, so please refer to that repository for issues, discussions
 and contributions guidelines.
 
-## Hosting the bot
+## Development
 
-If you need to host a new version of the bot yourself,
-[Python 3](https://www.python.org/downloads/) is required, as well as an
-environment variable `DISCORD_TOKEN`.
-The token can be found on your
-[Discord applications page](https://discord.com/developers/applications).
-
-The preferred way to run the bot is to use a python virtualenv:
+`just serve` runs the bot against a test guild, reading a `DISCORD_TOKEN` from a
+`.env` file at the root of the repository (ignored by git). The development
+token is shared through the repo, age-encrypted to the keys in
+`ansible/secrets/age-recipients.txt` — decrypt it into place:
 
 ```bash
-/usr/bin/python3 -m venv venv
-source venv/bin/activate
-pip install krcg-bot
-DISCORD_TOKEN=discord_token_of_your_bot
-krcg-bot
+age -d -i ~/.ssh/<your-key> -o .env ansible/secrets/dev-env.age
 ```
 
-A [systemd](https://en.wikipedia.org/wiki/Systemd) unit can be used
-to configure the bot as a system service:
-
-```ini
-[Unit]
-Description=krcg-bot
-After=network-online.target
-
-[Service]
-Type=simple
-Restart=always
-WorkingDirectory=directory_where_krcg_is_installed
-Environment=DISCORD_TOKEN=discord_token_of_your_bot
-ExecStart=/bin/bash -c 'source venv/bin/activate && krcg-bot'
-
-[Install]
-WantedBy=multi-user.target
-```
-
-For development, the environment variable `DISCORD_TOKEN` can be provided
-by a personal `.env` file at the root of the krcg folder (ignored by git):
+Or use your own bot's token from the
+[Discord applications page](https://discord.com/developers/applications):
 
 ```bash
 export DISCORD_TOKEN="discord_token_of_your_bot"
 ```
+
+`just test` runs the suite, which needs the network — it asserts against the
+live card corpus. The deploy of the hosted instance lives in
+[`ansible/`](ansible/README.md).

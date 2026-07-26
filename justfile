@@ -16,8 +16,15 @@ test: quality
 update:
     uv sync --dev --upgrade
 
-# Serve the bot locally
+# Serve the bot locally against your test guild (needs .env)
 serve:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -f .env ]]; then
+        echo "no .env — decrypt the shared dev token:"
+        echo "  age -d -i ~/.ssh/<your-key> -o .env ansible/secrets/dev-env.age"
+        exit 1
+    fi
     set -a && source .env && set +a && uv run krcg-bot
 
 # Deploy a released wheel to the bot host (tag defaults to the latest release)
@@ -79,12 +86,6 @@ bump level="minor": check
     echo "📤 Pushing to remote..."
     git push origin master --tags
 
-# Publish package to PyPI
-publish:
-    @echo "📦 Publishing to PyPI..."
-    @UV_PUBLISH_TOKEN="$(tr -d '\n' < ~/.pypi_token)" uv publish
-    @echo "✅ Package published!"
-
 # Publish the GitHub release for the current version, carrying the wheel it deploys
 github-release: build
     #!/usr/bin/env bash
@@ -97,6 +98,4 @@ github-release: build
 
 release: clean-build check test
     @just bump minor
-    @just build
-    @just publish
     @just github-release

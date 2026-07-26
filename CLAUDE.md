@@ -36,6 +36,8 @@ Discord bot displaying V:tES cards, texts and rulings, from the VEKN official ca
 | `refs/shared/` | Project facts, plan format |
 | `refs/{pm,eng,harness}/` | Per-agent knowledge, pull-based |
 | `src/krcg_bot/` | The bot — one module |
+| `tests/` | The gate: shape and Discord limits over the live corpus |
+| `ansible/` | Deploy of the one hosted instance, and its vault |
 | `.claude/agents/` | Agents: pm, eng, harness |
 | `.claude/rules/` | Constraints that load themselves when matching files are touched |
 | `.claude/hooks/` | Plan brief at session start, harness audit at session end |

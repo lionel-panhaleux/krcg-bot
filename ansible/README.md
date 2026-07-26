@@ -125,9 +125,9 @@ deploy.
 ## First converge
 
 Nothing is deployable yet: the repo has **no GitHub releases**, so there is no
-wheel to download. `just release` cuts the first one — which also pushes master
-and, until T-004 lands, publishes to PyPI. Cutting it by hand instead is
-`just build` then `gh release create vX.Y --generate-notes dist/*.whl`.
+wheel to download. `just release` cuts the first one. To cut one without the
+version bump: `just build` then
+`gh release create vX.Y --generate-notes dist/*.whl`.
 
 
 The bot already runs on gravelines from a hand-made `krcg-bot.service` at the
