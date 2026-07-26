@@ -24,6 +24,8 @@
     # serves a stale corpus for good. Give the service its own.
     cache_dir: /opt/krcg-bot/cache
     service_user: krcg-bot
+    #: the corpus refresh interval — a restart is the only one there is
+    max_runtime: 1d
     # the host python is the distro's (3.11 on Debian 12) and the wheel needs
     # >=3.13: uv fetches the interpreter instead of the host providing it
     python_version: "3.13"
