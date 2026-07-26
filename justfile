@@ -34,10 +34,13 @@ deploy tag="": clean-build
     fi
     count="$(ls dist/*.whl | wc -l)"
     [[ "${count}" -eq 1 ]] || { echo "expected one wheel on the release, got ${count}"; exit 1; }
-    vault=()
-    [[ -n "${ANSIBLE_VAULT_PASSWORD_FILE:-}" ]] || vault=(--ask-vault-pass)
+    if [[ ! -f ansible/.vault_pass ]]; then
+        echo "no ansible/.vault_pass — decrypt it first:"
+        echo "  age -d -i ~/.ssh/<your-key> -o ansible/.vault_pass ansible/secrets/vault-pass.age"
+        exit 1
+    fi
     cd ansible
-    uv run --group deploy ansible-playbook deploy.yml -e wheel="$(ls ../dist/*.whl)" "${vault[@]}"
+    uv run --group deploy ansible-playbook deploy.yml -e wheel="$(ls ../dist/*.whl)"
 
 # Clean build artifacts
 clean-build:

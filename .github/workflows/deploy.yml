@@ -49,6 +49,15 @@ jobs:
           [ "$count" -eq 1 ] || { echo "expected one wheel on the release, got $count"; exit 1; }
           ls -l dist/*.whl
 
+      # written to the path ansible.cfg already points at, so CI and the laptop
+      # run one command — there, age-decrypted from secrets/vault-pass.age
+      - name: Write the vault password
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ansible/.vault_pass
+          chmod 600 ansible/.vault_pass
+
       # a YAML-valid typo would otherwise surface on the live host, after the
       # unit has already been overwritten
       - name: Check the playbook
@@ -67,13 +76,6 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$DEPLOY_HOST_KEY" >> ~/.ssh/known_hosts
 
-      - name: Write the vault password
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: |
-          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault-pass
-          chmod 600 ~/.vault-pass
-
       - name: Converge
         working-directory: ansible
         env:
@@ -81,9 +83,8 @@ jobs:
           ANSIBLE_PRIVATE_KEY_FILE: ~/.ssh/id_deploy
         run: |
           uv run --group deploy ansible-playbook deploy.yml \
-            --vault-password-file ~/.vault-pass \
             -e wheel="$(ls ../dist/*.whl)"
 
       - name: Drop the credentials
         if: always()
-        run: rm -f ~/.vault-pass ~/.ssh/id_deploy
+        run: rm -f ansible/.vault_pass ~/.ssh/id_deploy

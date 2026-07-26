@@ -11,6 +11,9 @@ dist/
 .pytest_cache/
 .env
 
+# deploy — the decrypted vault password (age-decrypt secrets/vault-pass.age into it)
+ansible/.vault_pass
+
 # editors & OS
 .vscode/
 *.DS_Store

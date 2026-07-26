@@ -16,18 +16,50 @@ The playbook creates the `krcg-bot` system user, `/opt/krcg-bot/venv`, the cache
 directory, the token file and the systemd unit. It never puts the token in the
 unit: an inline `Environment=` is readable by anyone who can run `systemctl cat`.
 
+## Vault password
+
+The vault password itself lives **in the repo, age-encrypted**, decryptable only
+by the keys in `secrets/age-recipients.txt`. Install
+[`age`](https://github.com/FiloSottile/age) first. `ansible.cfg` points
+`vault_password_file` at the git-ignored `.vault_pass`, so decrypt into that and
+every command below just works:
+
+```bash
+cd ansible
+age -d -i ~/.ssh/<your-key> -o .vault_pass secrets/vault-pass.age
+```
+
+CI writes the same file from the `ANSIBLE_VAULT_PASSWORD` secret, so both paths
+run one command with no `--vault-password-file` anywhere.
+
+### Adding a recipient
+
+Recipients are the public keys in `secrets/age-recipients.txt` — one per line,
+either `ssh-ed25519`/`ssh-rsa` (e.g. a line from `https://github.com/<user>.keys`)
+or `age1…` from `age-keygen`. Editing the list does not re-key anything; an
+existing recipient must re-encrypt:
+
+```bash
+age -d -i ~/.ssh/<your-key> -o .vault_pass secrets/vault-pass.age   # 1. decrypt
+echo 'ssh-ed25519 AAAA… alice' >> secrets/age-recipients.txt        # 2. add their PUBLIC key
+age -R secrets/age-recipients.txt -o secrets/vault-pass.age < .vault_pass   # 3. re-encrypt
+```
+
+The password is unchanged — you are only widening who can read it. **Removing** a
+recipient is the same flow with their line deleted, but that only stops *future*
+decrypts: anyone who already decrypted still holds the password. Revoking for
+cause means rotating the vault password itself, re-encrypting `vault.yml` with
+it, and updating the GitHub secret.
+
 ## The vault
 
 `vault.yml` holds one variable, `discord_token`, and is committed **encrypted**.
-Create it once:
+With `.vault_pass` in place, create it once:
 
 ```bash
 cd ansible
 ansible-vault create vault.yml     # discord_token: <the bot token>
 ```
-
-Then add the same password as the `ANSIBLE_VAULT_PASSWORD` GitHub secret, so CI
-and the laptop run one code path.
 
 > This repo is public, so the vault publishes the ciphertext of a live bot
 > token. Lionel accepted that (T-001). `ansible-vault` uses PBKDF2 at 10 000
@@ -36,9 +68,20 @@ and the laptop run one code path.
 > The escape hatch, if that ever stops being acceptable: `-e discord_token=...`
 > overrides `vault.yml`, since extra-vars outrank `vars_files`.
 
-CI also needs `ANSIBLE_VAULT_PASSWORD` on the `production` environment. Today
-that environment holds only the `DEPLOY_SSH_KEY` secret, plus the `DEPLOY_HOST`
-and `DEPLOY_HOST_KEY` *variables*.
+### Bootstrapping it, in order
+
+Nothing exists yet. Once, from `ansible/`:
+
+```bash
+head -c 32 /dev/urandom | base64 > .vault_pass          # 1. a long random password
+age -R secrets/age-recipients.txt -o secrets/vault-pass.age < .vault_pass   # 2. share it
+ansible-vault create vault.yml                          # 3. discord_token: <the live token>
+gh secret set ANSIBLE_VAULT_PASSWORD --env production < .vault_pass         # 4. give CI the same
+```
+
+Commit `secrets/vault-pass.age` and `vault.yml`; `.vault_pass` is git-ignored.
+The `production` environment currently holds only the `DEPLOY_SSH_KEY` secret,
+plus the `DEPLOY_HOST` and `DEPLOY_HOST_KEY` *variables*.
 
 ## Deploying
 
