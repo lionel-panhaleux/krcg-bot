@@ -6,7 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-008 — Cap the first action row and truncate button labels — todo — tickets/T-008.md
+(empty)
 
 ## Next
 

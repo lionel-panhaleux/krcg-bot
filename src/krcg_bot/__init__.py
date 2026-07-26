@@ -30,6 +30,11 @@ CARDS: krcg.CardDict = krcg.CardDict()
 #: Remove buttons after that many seconds
 COMPONENTS_TIMEOUT = 300
 
+#: Discord's component ceilings — exceeding any of them is a 400 on the interaction
+BUTTONS_PER_ROW = 5
+MAX_ACTION_ROWS = 5
+LABEL_MAX = 80
+
 #: Disciplines emojis in guilds
 EMOJIS: dict[hikari.Snowflake, dict[str, hikari.Snowflake]] = {}
 EMOJI_NAME_MAP: dict[str, str] = {
@@ -478,48 +483,54 @@ def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> li
 def _build_components(
     card_data: krcg.Card, public: bool, origin_id: int | None = None
 ) -> list[MessageActionRowBuilder]:
-    ret = []
+    ret: list[MessageActionRowBuilder] = []
     row = bot.rest.build_message_action_row()
+
+    def add(style: hikari.InteractiveButtonTypesT, custom_id: str, label: str) -> bool:
+        nonlocal row
+        if len(row.components) >= BUTTONS_PER_ROW:
+            ret.append(row)
+            row = bot.rest.build_message_action_row()
+        if len(ret) >= MAX_ACTION_ROWS:
+            return False
+        if len(label) > LABEL_MAX:
+            label = label[: LABEL_MAX - 1] + "…"
+        row.add_interactive_button(style, custom_id, label=label)
+        return True
+
     links = set()
+    # "Make public" and "< Back" go in first and so are never the ones dropped:
+    # < Back is the only route into HISTORY, and dropping it strands the reader
     if not public:
-        row.add_interactive_button(
-            hikari.ButtonStyle.SUCCESS,
-            f"public-{card_data.id}",
-            label="Make public",
-        )
+        add(hikari.ButtonStyle.SUCCESS, f"public-{card_data.id}", "Make public")
     if origin_id and not public:
         links.add(int(origin_id))
-        row.add_interactive_button(
-            hikari.ButtonStyle.PRIMARY,
-            f"switch-0-{origin_id}",
-            label="< Back",
-        )
+        add(hikari.ButtonStyle.PRIMARY, f"switch-0-{origin_id}", "< Back")
     for variant in sorted(card_data.variants, key=lambda v: v.suffix):
         links.add(variant.id)
-        row.add_interactive_button(
+        if not add(
             hikari.ButtonStyle.PRIMARY,
             f"switch-{variant.id}",
-            label="Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix,
-        )
+            "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix,
+        ):
+            logger.warning("%s: dropped variant buttons, no room", card_data.full_name)
+            break
+    # links to cards referenced in rulings start their own row, and are the first
+    # sacrificed: unlike < Back, they are all reachable again through autocomplete
     if len(row.components):
         ret.append(row)
-    # add links to cards referenced in rulings
-    row = bot.rest.build_message_action_row()
-    for r in card_data.rulings:
-        for card in r.cards:
-            if len(ret) >= 5:
-                break
-            if card.id in links:
-                continue
-            links.add(card.id)
-            row.add_interactive_button(
-                hikari.ButtonStyle.SECONDARY,
-                f"switch-{card_data.id}-{card.id}",
-                label=card.unique_name,
-            )
-            if len(row.components) >= 5:
-                ret.append(row)
-                row = bot.rest.build_message_action_row()
+        row = bot.rest.build_message_action_row()
+    for card in (card for r in card_data.rulings for card in r.cards):
+        if card.id in links:
+            continue
+        links.add(card.id)
+        if not add(
+            hikari.ButtonStyle.SECONDARY,
+            f"switch-{card_data.id}-{card.id}",
+            card.unique_name,
+        ):
+            logger.warning("%s: dropped ruling links, no room", card_data.full_name)
+            break
     if len(row.components):
         ret.append(row)
     return ret
