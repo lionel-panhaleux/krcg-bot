@@ -11,6 +11,7 @@ Claude Code behaviour the harness depends on. External reality: verify against c
 ## Tool filters that shape agent design
 - Never available to a subagent: `AskUserQuestion`, `EnterPlanMode`, `ScheduleWakeup`, `Workflow`, `TaskOutput`. This is why `/ticket` grills from the main loop only.
 - `Agent` is withheld unless `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` is set — subagents cannot delegate by default.
+- The **main** session's `Agent` can be restricted by its system prompt, injected at launch and absent from every repo file — so a grep of `.claude/` and `CLAUDE.md` will not find it. Observed 2026-07-26, not documented behaviour: "Do not call the AgentTool unless the user requested it". That wording admits a user request, and the CLAUDE.md review line is what supplies one (T-006). Two mechanisms depend on `Agent` — `/ticket` step 3 advisors and that review line — and neither announces that it did not run, so a whole session can skip both silently. Check your own session's wording rather than trusting the quote above; if no such restriction is present, the CLAUDE.md clause has nothing to satisfy and should go.
 - Subagents run in the background by default, and a background subagent keeps only: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, TodoWrite, Skill, ToolSearch, SendMessage, Monitor, TaskStop, Artifact, NotebookEdit, EnterWorktree/ExitWorktree, plus every MCP tool. Anything else in a `tools:` list silently disappears in the background.
 
 ## Mechanism selection

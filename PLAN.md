@@ -6,7 +6,6 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-006 — Scope the independent-review clause and make it runnable across sessions — todo — tickets/T-006.md
 T-008 — Cap the first action row and truncate button labels — todo — tickets/T-008.md
 
 ## Next

@@ -17,7 +17,7 @@ Discord bot displaying V:tES cards, texts and rulings, from the VEKN official ca
 - Finish forward: improvements discovered on task are part of the task; finishing sweeps every consequence. Finish = complete and consistent, not maximal: speculative polish against unstable facts stays unbuilt. De-scope to `/ticket` only on a genuine track-change — adding capability or surface (observable: new files, commands, interfaces).
 - Defer only on a named trigger: missing external fact, pending sign-off (existing as a PLAN.md ticket), or observed evidence — "needs Lionel" alone is not a trigger. Never for effort. No TODO notes in docs or code — a deferral is a ticket, a PLAN.md Queue entry awaiting grilling, or it dies.
 - Verify before done: `just quality` passes, plus the check `refs/eng/INDEX.md` §Workflow names for the surface you touched. Show the evidence — the command and what it returned — never an assertion that it works.
-- Substantive changes get an independent agent review before commit.
+- Bot code and constitutional docs get an independent agent review before commit (Lionel, T-006: use the Agent tool for these reviews and for `/ticket` advisors). Tombstones, plan bookkeeping and non-constitutional refs corrections are exempt.
 - Style: KISS, local, DRY, short. No narration comments, no explanation-in-code, no patterns added for human readability.
 - Tech claims: current docs first (context7), never training-data recall — for any stack, version, or API question.
 - Game-domain claims: the `vtes` skill is the reference for cards, rules and rulings. Never answer from recall.
