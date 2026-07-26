@@ -22,4 +22,4 @@ Sanctioned pre-ticket pen — reminders awaiting `/ticket` grilling with Lionel,
 
 - `_build_components` can emit more than Discord's 5 action rows: `len(ret) >= 5` breaks only the inner loop, then a trailing append runs unconditionally. Button labels are not capped at the 80-char limit either. Found by `eng` while advising T-003
 - Switch from a gateway bot to a hook-based (HTTP interactions) bot. Lionel: "there are good tunneling solutions I think discord itself documents to achieve this". Testability was the sole reason for the gateway, so a tunnel removes that objection — verify what Discord actually documents (context7/current docs, not recall) before filing. Strategic: changes the runtime shape, the hosting story, and what `ansible/` deploys
-- README states Python 3.8 and the black code style; the project is Python 3.13 + ruff
+- `audit-check.sh` watches only `CLAUDE.md`, `refs/`, `.claude/`. `README.md` carries project facts too — its Python badge said 3.8 for years and no audit trigger ever fired (T-005, unwatched-path leak). Widen the filter, or accept that README facts drift unwatched
