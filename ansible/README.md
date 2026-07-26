@@ -52,8 +52,17 @@ It prompts for the vault password unless `ANSIBLE_VAULT_PASSWORD_FILE` is set.
 
 From CI: `.github/workflows/deploy.yml` runs on a published GitHub release
 (`just github-release`, or the GitHub UI) and on `workflow_dispatch`. It reads
-`DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_HOST_KEY` and `ANSIBLE_VAULT_PASSWORD`
-from the `production` environment.
+`DEPLOY_SSH_KEY` and `ANSIBLE_VAULT_PASSWORD` (secrets) plus `DEPLOY_HOST` and
+`DEPLOY_HOST_KEY` (variables) from the `production` environment.
+
+**The release carries the wheel it deploys.** `just github-release` attaches it,
+and the workflow downloads that asset rather than building a second one — one
+artifact per release, and redeploying an older one is `workflow_dispatch` with
+its tag. A release with no wheel attached fails the job rather than deploying
+something else.
+
+`just deploy` is the exception, and deliberately: it builds from the working
+tree, so the laptop path can converge code that was never released.
 
 ## What a converge does
 

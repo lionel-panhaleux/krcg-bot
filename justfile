@@ -73,14 +73,15 @@ publish:
     @UV_PUBLISH_TOKEN="$(tr -d '\n' < ~/.pypi_token)" uv publish
     @echo "✅ Package published!"
 
-# Publish the GitHub release for the current version — this is what triggers the deploy
-github-release:
+# Publish the GitHub release for the current version, carrying the wheel it deploys
+github-release: build
     #!/usr/bin/env bash
     set -euo pipefail
     VERSION="$(uv version --short)"
-    echo "🚀 Publishing release v${VERSION}..."
-    gh release create "v${VERSION}" --generate-notes
-    echo "✅ Release published — .github/workflows/deploy.yml takes it from here"
+    WHEEL="$(ls dist/krcg_bot-"${VERSION}"-*.whl)"
+    echo "🚀 Publishing release v${VERSION} with $(basename "${WHEEL}")..."
+    gh release create "v${VERSION}" --generate-notes "${WHEEL}"
+    echo "✅ Release published — deploy.yml converges that exact wheel"
 
 release: clean-build check test
     @just bump minor
