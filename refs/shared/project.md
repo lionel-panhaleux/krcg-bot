@@ -12,7 +12,7 @@ V:tES players, mid-game or mid-discussion, on any Discord server. The bot must a
 Card texts come from the VEKN official card lists, rulings from the KRCG rulings list, both via the `krcg` python package (upstream: `lionel-panhaleux/krcg`). Data is loaded from the KRCG static server at startup and held in memory — the bot ships no card data of its own, and a restart is how it picks up new cards or rulings.
 
 ## Distribution
-One instance, hosted by Lionel, installable on any Discord server via the OAuth link in the README. Self-hosting is not supported and is no longer documented (Lionel, T-004). The PyPI package served mirrors rather than people; it is to be archived — not yanked, not deleted — leaving it installable, unmaintained, with the name held.
+One instance, hosted by Lionel, installable on any Discord server via the OAuth link in the README. Self-hosting is not supported and is no longer documented (Lionel, T-004). The PyPI package served mirrors rather than people and is archived — not yanked, not deleted — leaving it installable, unmaintained, with the name held.
 
 ## Governance
 MIT. Issues, discussions and contribution guidelines live in the upstream `krcg` repository, not here — this repo is the bot only. Card materials are Paradox Interactive copyrights and trademarks, used with permission (Dark Pack); the attribution in the README and the footer icon in card embeds are not optional.
