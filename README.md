@@ -1,9 +1,8 @@
 # KRCG Discord Bot
 
 [![Test](https://github.com/lionel-panhaleux/krcg-bot/actions/workflows/test.yml/badge.svg)](https://github.com/lionel-panhaleux/krcg-bot/actions/workflows/test.yml)
-[![Python version](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
+[![Python version](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](https://opensource.org/licenses/MIT)
-[![Code Style](https://img.shields.io/badge/code%20style-black-black)](https://github.com/psf/black)
 
 A discord bot to display V:tES cards, using
 the VEKN [official card texts](http://www.vekn.net/card-lists) and
@@ -23,7 +22,7 @@ This bot lets you retrieve cards official text, image and rulings:
 To call the bot, use slash commands: `/card` followed by a card name.
 Make sure you use the name autocompletion or you might not get the result you want.
 By default, the bot answers to you with a private message other members do not see.
-You can use the optional `public` paramater to your slash command to make the message
+You can use the optional `public` parameter to your slash command to make the message
 visible for everyone in the channel.
 
 It is online and free to use,

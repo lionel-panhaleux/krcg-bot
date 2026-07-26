@@ -6,7 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-005 — Correct the stale README badges — todo — tickets/T-005.md
+(empty)
 
 ## Next
 
