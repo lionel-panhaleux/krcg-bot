@@ -30,6 +30,11 @@ CARDS: krcg.CardDict = krcg.CardDict()
 #: Remove buttons after that many seconds
 COMPONENTS_TIMEOUT = 300
 
+#: An interaction token dies 15 minutes after its message. Never wait past that:
+#: the strip would fail and leave live buttons over state we had already dropped.
+TOKEN_LIFETIME = 900
+TOKEN_MARGIN = 30
+
 #: Discord's component ceilings — exceeding any of them is a 400 on the interaction
 BUTTONS_PER_ROW = 5
 MAX_ACTION_ROWS = 5
@@ -52,6 +57,9 @@ EMOJI_NAME_MAP: dict[str, str] = {
 }
 NAME_EMOJI_MAP = {v: k for k, v in EMOJI_NAME_MAP.items()}
 HISTORY: dict[hikari.Snowflake, list[int]] = collections.defaultdict(list)
+#: message id -> loop clock after which its buttons are stripped, pushed back by
+#: each navigation so the timeout measures idleness, not age
+EXPIRY: dict[hikari.Snowflake, float] = {}
 
 
 class CommandFailed(Exception):
@@ -238,13 +246,35 @@ async def card(
         components=components,
         flags=flags,
     )
-    # remove components and history after 5 minute
+    await _expire_components(interaction)
+
+
+async def _expire_components(
+    interaction: hikari.CommandInteraction | hikari.ComponentInteraction,
+) -> None:
+    """Strip the buttons once the message has gone COMPONENTS_TIMEOUT unused."""
     await asyncio.sleep(COMPONENTS_TIMEOUT)
     try:
-        message = await interaction.edit_initial_response(components=[])
-        HISTORY.pop(message.id, None)
+        message = await interaction.fetch_initial_response()
+    # dismissed or expired before we ever learned the message id, so there is
+    # nothing to key a cleanup on. Bounded by the next restart
+    except hikari.ClientHTTPResponseError:
+        return
+    try:
+        while (left := EXPIRY.get(message.id, 0) - asyncio.get_running_loop().time()) > 0:
+            await asyncio.sleep(left)
+        await interaction.edit_initial_response(components=[])
+    # genuinely gone — dismissed, or make_public deleted it. No reader left to
+    # strand, so our state is just litter
     except hikari.NotFoundError:
         pass
+    # the token died while the message still answers clicks, each one minting a
+    # fresh token. Dropping HISTORY here is itself the stranding this prevents
+    except hikari.ClientHTTPResponseError:
+        logger.warning("left components in place on interaction %s", interaction.id)
+        return
+    HISTORY.pop(message.id, None)
+    EXPIRY.pop(message.id, None)
 
 
 @functools.lru_cache(4096)
@@ -298,10 +328,23 @@ async def switch_card(interaction: hikari.ComponentInteraction) -> None:
                 origin_id = HISTORY[interaction.message.id][-1]
             else:
                 origin_id = None
+        # a variant button carries no origin, so < Back is rendered from the
+        # stack rather than from custom_id: without this the reader loses the
+        # way back while HISTORY still holds frames. .get(), never [], or a
+        # top-level variant click leaks an empty list into the defaultdict
+        stack = HISTORY.get(interaction.message.id)
+        if origin_id is None and stack:
+            origin_id = stack[-1]
     components = _build_components(card_data, False, origin_id if ephemeral else None)
     if ephemeral:
         await interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_UPDATE, embeds=embeds, components=components
+        )
+        age = (
+            datetime.datetime.now(datetime.timezone.utc) - interaction.message.created_at
+        ).total_seconds()
+        EXPIRY[interaction.message.id] = asyncio.get_running_loop().time() + min(
+            COMPONENTS_TIMEOUT, TOKEN_LIFETIME - TOKEN_MARGIN - age
         )
     # do not change the original message if it was public
     else:
@@ -311,13 +354,7 @@ async def switch_card(interaction: hikari.ComponentInteraction) -> None:
             components=components,
             flags=hikari.MessageFlag.EPHEMERAL,
         )
-        # remove components and history after 5 minute
-        await asyncio.sleep(COMPONENTS_TIMEOUT)
-        try:
-            message = await interaction.edit_initial_response(components=[])
-            HISTORY.pop(message.id, None)
-        except hikari.NotFoundError:
-            pass
+        await _expire_components(interaction)
 
 
 async def make_public(interaction: hikari.ComponentInteraction) -> None:
@@ -334,6 +371,9 @@ async def make_public(interaction: hikari.ComponentInteraction) -> None:
         components=[],
     )
     HISTORY.pop(interaction.message.id, None)
+    # the ephemeral is about to be deleted, so its expiry watcher will only ever
+    # get a 404 and cannot clean this up itself
+    EXPIRY.pop(interaction.message.id, None)
     _, message = await asyncio.gather(
         interaction.delete_initial_response(),
         bot.rest.execute_webhook(
@@ -503,8 +543,9 @@ def _build_components(
     # < Back is the only route into HISTORY, and dropping it strands the reader
     if not public:
         add(hikari.ButtonStyle.SUCCESS, f"public-{card_data.id}", "Make public")
+    # the origin is deliberately not added to links: < Back pops the stack and
+    # that card's ruling-link button pushes onto it, so both are offered
     if origin_id and not public:
-        links.add(int(origin_id))
         add(hikari.ButtonStyle.PRIMARY, f"switch-0-{origin_id}", "< Back")
     for variant in sorted(card_data.variants, key=lambda v: v.suffix):
         links.add(variant.id)
