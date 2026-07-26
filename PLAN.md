@@ -1,12 +1,12 @@
 # PLAN
 
-next-ticket-id: T-005 · Entries land only via `/ticket` (format: `refs/shared/plan-format.md`).
+next-ticket-id: T-006 · Entries land only via `/ticket` (format: `refs/shared/plan-format.md`).
 
 Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets append ` ← T-NNN`
 
 ## Now
 
-(empty)
+T-005 — Correct the stale README badges — todo — tickets/T-005.md
 
 ## Next
 
