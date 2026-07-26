@@ -20,11 +20,20 @@ update:
 serve:
     set -a && source .env && set +a && uv run krcg-bot
 
-# Deploy the current build to the bot host (needs DEPLOY_HOST and the vault password)
-deploy: clean-build build
+# Deploy a released wheel to the bot host (tag defaults to the latest release)
+deploy tag="": clean-build
     #!/usr/bin/env bash
     set -euo pipefail
     : "${DEPLOY_HOST:?set DEPLOY_HOST to the bot host address}"
+    # the release is the only source of a deployed artifact: never a local build,
+    # or what runs in production answers to no tag
+    if [[ -n "{{ tag }}" ]]; then
+        gh release download "{{ tag }}" --pattern '*.whl' --dir dist
+    else
+        gh release download --pattern '*.whl' --dir dist
+    fi
+    count="$(ls dist/*.whl | wc -l)"
+    [[ "${count}" -eq 1 ]] || { echo "expected one wheel on the release, got ${count}"; exit 1; }
     vault=()
     [[ -n "${ANSIBLE_VAULT_PASSWORD_FILE:-}" ]] || vault=(--ask-vault-pass)
     cd ansible

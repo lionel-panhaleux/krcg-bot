@@ -42,27 +42,30 @@ and `DEPLOY_HOST_KEY` *variables*.
 
 ## Deploying
 
-From the laptop — builds the wheel, then converges:
+Only a released wheel is ever deployed, from either path — what runs in
+production always answers to a tag.
+
+From the laptop, downloading the release artifact and converging it:
 
 ```bash
-DEPLOY_HOST=<host> just deploy
+DEPLOY_HOST=<host> just deploy          # the latest release
+DEPLOY_HOST=<host> just deploy v4.4     # or roll back to a specific one
 ```
 
 It prompts for the vault password unless `ANSIBLE_VAULT_PASSWORD_FILE` is set.
+There is no path that ships working-tree code: to try a change on the host, cut
+a release.
 
 From CI: `.github/workflows/deploy.yml` runs on a published GitHub release
 (`just github-release`, or the GitHub UI) and on `workflow_dispatch`. It reads
 `DEPLOY_SSH_KEY` and `ANSIBLE_VAULT_PASSWORD` (secrets) plus `DEPLOY_HOST` and
 `DEPLOY_HOST_KEY` (variables) from the `production` environment.
 
-**The release carries the wheel it deploys.** `just github-release` attaches it,
-and the workflow downloads that asset rather than building a second one — one
-artifact per release, and redeploying an older one is `workflow_dispatch` with
-its tag. A release with no wheel attached fails the job rather than deploying
-something else.
-
-`just deploy` is the exception, and deliberately: it builds from the working
-tree, so the laptop path can converge code that was never released.
+**The release carries the wheel it deploys.** `just github-release` attaches it;
+both the workflow and `just deploy` download that asset rather than building
+one. A release with no wheel attached fails rather than deploying something
+else. Redeploying an older release is `workflow_dispatch` with its tag, or
+`just deploy <tag>`.
 
 ## What a converge does
 
@@ -77,6 +80,12 @@ still the same run — `Restart=always` means a crash-looping bot passes through
 deploy.
 
 ## First converge
+
+Nothing is deployable yet: the repo has **no GitHub releases**, so there is no
+wheel to download. `just release` cuts the first one — which also pushes master
+and, until T-004 lands, publishes to PyPI. Cutting it by hand instead is
+`just build` then `gh release create vX.Y --generate-notes dist/*.whl`.
+
 
 The bot already runs on gravelines from a hand-made `krcg-bot.service` at the
 same path this playbook writes, as `User=lpanhaleux` out of
