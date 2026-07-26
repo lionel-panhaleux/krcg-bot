@@ -7,7 +7,7 @@
 
 A discord bot to display V:tES cards, using
 the VEKN [official card texts](http://www.vekn.net/card-lists) and
-[KRCG](https://github.com/lionel-panhaleux/krcg) rulings list.
+[rulings database](https://github.com/vtes-biased/vtes-rulings) rulings list.
 
 Portions of the materials are the copyrights and trademarks of Paradox Interactive AB,
 and are used with permission. All rights reserved.
