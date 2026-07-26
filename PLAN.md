@@ -6,7 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-002 — Port to krcg 5 — awaiting-sign-off — tickets/T-002.md
+(empty)
 
 ## Next
 
