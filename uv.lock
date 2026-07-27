@@ -499,7 +499,7 @@ wheels = [
 
 [[package]]
 name = "krcg-bot"
-version = "4.7"
+version = "4.8"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
