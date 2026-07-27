@@ -229,7 +229,17 @@ def test_components_variants(cards):
     buttons = {b.label: b.custom_id for row in rows for b in row.components}
     for variant in card.variants:
         label = "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix
-        assert buttons[label] == f"switch-{variant.id}"
+        assert krcg_bot._parse_stack(buttons[label]) == [variant.id]
+
+
+def test_components_variants_inherit_the_trail(cards):
+    """A variant is another version of the card on screen, not a step down from it."""
+    card = find(cards, lambda c: len(c.variants) > 1)
+    rows = krcg_bot._build_components(card, public=False, stack=[100001, 100002])
+    buttons = {b.label: b.custom_id for row in rows for b in row.components}
+    for variant in card.variants:
+        label = "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix
+        assert krcg_bot._parse_stack(buttons[label]) == [100001, 100002, variant.id]
 
 
 def test_components_public_button(cards):
@@ -243,24 +253,83 @@ def test_components_public_button(cards):
 
 
 def test_components_back_button(cards):
+    """< Back walks up one frame and carries the rest of the trail with it."""
     card = find(cards, lambda c: True)
-    rows = krcg_bot._build_components(card, public=False, origin_id=42)
+    rows = krcg_bot._build_components(card, public=False, stack=[100001, 100002, 100003])
     buttons = {b.label: b.custom_id for row in rows for b in row.components}
-    assert buttons["< Back"] == "switch-0-42"
+    assert krcg_bot._parse_stack(buttons["< Back"]) == [100001, 100002, 100003]
+
+
+def test_components_no_back_button_at_the_root(cards):
+    card = find(cards, lambda c: True)
+    rows = krcg_bot._build_components(card, public=False)
+    assert "< Back" not in {b.label for row in rows for b in row.components}
 
 
 def test_components_ruling_links(cards):
+    """A ruling link descends: the card on screen becomes the trail's last frame."""
     card = find(cards, lambda c: any(r.cards for r in c.rulings))
-    rows = krcg_bot._build_components(card, public=False)
+    rows = krcg_bot._build_components(card, public=False, stack=[100001])
     buttons = {b.custom_id for row in rows for b in row.components}
     cited = next(r for r in card.rulings if r.cards).cards[0]
-    assert f"switch-{card.id}-{cited.id}" in buttons
+    assert krcg_bot._switch_id([100001, card.id], cited.id) in buttons
+
+
+def test_components_trail_truncates_at_the_oldest_frame(cards):
+    """Past the ceiling the trail shortens from its far end, never 400s."""
+    deep = [100001 + i for i in range(krcg_bot.MAX_FRAMES + 5)]
+    custom_id = krcg_bot._switch_id(deep, 200000)
+    assert len(custom_id) <= CUSTOM_ID
+    assert krcg_bot._parse_stack(custom_id) == (deep + [200000])[-krcg_bot.MAX_FRAMES :]
+
+
+def test_components_ping_pong_trail_draws_no_duplicate(cards):
+    """A→B→A→B is real (58 mutually-citing pairs); a duplicate custom_id is a 400.
+
+    At the full ceiling < Back and a ruling link would spell the same trail, so
+    _build_components keeps the rendered stack one frame short.
+    """
+    card = find(cards, lambda c: any(r.cards for r in c.rulings))
+    other = next(link for r in card.rulings if r.cards for link in r.cards)
+    for depth in range(krcg_bot.MAX_FRAMES + 3):
+        stack = [(card.id if i % 2 == 0 else other.id) for i in range(depth)]
+        rows = krcg_bot._build_components(card, public=False, stack=stack)
+        ids = [b.custom_id for row in rows for b in row.components]
+        assert len(ids) == len(set(ids)), (depth, ids)
+        for custom_id in ids:
+            assert len(custom_id) <= CUSTOM_ID, (depth, custom_id)
+
+
+def test_parse_stack_refuses_a_previous_release_button(cards):
+    """A deploy leaves old-format buttons live; they must not reach the funnel."""
+    for custom_id in ("switch-0-200123", "switch-100001-100002", "switch-", "switch-12345"):
+        with pytest.raises(krcg_bot.CommandFailed):
+            krcg_bot._parse_stack(custom_id)
+    # the one old form that is still honest: a bare target, no trail
+    assert krcg_bot._parse_stack("switch-100001") == [100001]
+
+
+def test_card_lookup_refuses_a_retired_id(cards):
+    """The failure T-010 introduces: a button outliving the card it names."""
+    absent = 2
+    assert absent not in cards
+    with pytest.raises(krcg_bot.CommandFailed):
+        krcg_bot._card(absent)
+
+
+def test_card_ids_are_fixed_width(cards):
+    """The whole custom_id encoding rests on this: a wider id desyncs every frame."""
+    for card in cards.cards():
+        assert len(str(card.id)) == krcg_bot.ID_WIDTH, card.full_name
 
 
 def test_components_hold_discord_limits(cards):
+    # the deepest trail production can reach: switch_card peels the target off a
+    # full custom_id, so a rendered stack is never longer than MAX_FRAMES - 1
+    deepest = [card.id for card in list(cards.cards())[: krcg_bot.MAX_FRAMES - 1]]
     for card in cards.cards():
         for public in (False, True):
-            rows = krcg_bot._build_components(card, public, origin_id=card.id)
+            rows = krcg_bot._build_components(card, public, stack=deepest)
             assert len(rows) <= ROWS, card.full_name
             ids = [b.custom_id for row in rows for b in row.components]
             # a repeated custom_id is a 400 from Discord, not a duplicate button

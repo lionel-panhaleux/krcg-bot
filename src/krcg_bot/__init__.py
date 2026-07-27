@@ -1,7 +1,6 @@
 """Discord Bot."""
 
 import asyncio
-import collections
 import datetime
 import functools
 import logging
@@ -39,6 +38,13 @@ TOKEN_MARGIN = 30
 BUTTONS_PER_ROW = 5
 MAX_ACTION_ROWS = 5
 LABEL_MAX = 80
+CUSTOM_ID_MAX = 100
+
+#: A switch button carries its whole navigation stack as fixed-width card ids,
+#: the target last: every id in the corpus is exactly 6 digits, so no separator
+#: is needed and the depth the 100-char custom_id affords is a constant
+ID_WIDTH = 6
+MAX_FRAMES = (CUSTOM_ID_MAX - len("switch-")) // ID_WIDTH
 
 #: Disciplines emojis in guilds
 EMOJIS: dict[hikari.Snowflake, dict[str, hikari.Snowflake]] = {}
@@ -56,9 +62,10 @@ EMOJI_NAME_MAP: dict[str, str] = {
     "conviction": "1 CONVICTION",
 }
 NAME_EMOJI_MAP = {v: k for k, v in EMOJI_NAME_MAP.items()}
-HISTORY: dict[hikari.Snowflake, list[int]] = collections.defaultdict(list)
 #: message id -> loop clock after which its buttons are stripped, pushed back by
-#: each navigation so the timeout measures idleness, not age
+#: each navigation so the timeout measures idleness, not age. An entry exists if
+#: and only if a watcher is parked on that message: a click that finds none is
+#: on a message that outlived the process that answered it, and re-arms one.
 EXPIRY: dict[hikari.Snowflake, float] = {}
 
 
@@ -249,32 +256,73 @@ async def card(
     await _expire_components(interaction)
 
 
+def _now() -> float:
+    return asyncio.get_running_loop().time()
+
+
+def _idle_until() -> float:
+    """Loop clock at which an unused message loses its buttons."""
+    return _now() + COMPONENTS_TIMEOUT
+
+
 async def _expire_components(
     interaction: hikari.CommandInteraction | hikari.ComponentInteraction,
+    message: hikari.Message | None = None,
 ) -> None:
-    """Strip the buttons once the message has gone COMPONENTS_TIMEOUT unused."""
-    await asyncio.sleep(COMPONENTS_TIMEOUT)
-    try:
-        message = await interaction.fetch_initial_response()
-    # dismissed or expired before we ever learned the message id, so there is
-    # nothing to key a cleanup on. Bounded by the next restart
-    except hikari.ClientHTTPResponseError:
+    """Strip the buttons once the message has gone COMPONENTS_TIMEOUT unused.
+
+    A caller that already holds the message passes it, so the claim lands before
+    this coroutine's first await. The caller that does not must learn the id
+    first, and a click arriving inside that round-trip re-arms a watcher of its
+    own — hence the claim is also a check: whoever gets there first owns the
+    message, the loser leaves without touching the winner's entry.
+    """
+    if message is None:
+        try:
+            message = await interaction.fetch_initial_response()
+        # dismissed or expired before we ever learned the message id, so there is
+        # nothing to key a cleanup on. Bounded by the next restart
+        except hikari.ClientHTTPResponseError:
+            return
+    if message.id in EXPIRY:
         return
+    # a watcher strips through the token it was handed, and every caller parks one
+    # straight after answering, so that token dies TOKEN_LIFETIME from here. Never
+    # sleep past it, however far navigation pushes the idle deadline. This clock,
+    # not the message's age: a watcher re-armed on an hours-old message holds a
+    # brand-new token, and anchoring on the message would strip it on the spot
+    token_death = _now() + TOKEN_LIFETIME - TOKEN_MARGIN
+    # claimed before the first sleep, not after the first navigation: the entry
+    # is what tells a later click a watcher is already parked here
+    EXPIRY[message.id] = _idle_until()
     try:
-        while (left := EXPIRY.get(message.id, 0) - asyncio.get_running_loop().time()) > 0:
-            await asyncio.sleep(left)
-        await interaction.edit_initial_response(components=[])
+        while True:
+            while (left := min(EXPIRY.get(message.id, 0), token_death) - _now()) > 0:
+                await asyncio.sleep(left)
+            # our token ran out before the reader did. Stripping here would take
+            # the buttons off a reader mid-argument, and they no longer need us:
+            # they carry their own trail, so they still answer, and the next
+            # click re-arms a watcher on a fresh token to strip once it is over
+            if EXPIRY.get(message.id, 0) > token_death:
+                return
+            honoured = EXPIRY.get(message.id, 0)
+            await interaction.edit_initial_response(components=[])
+            # a navigation landed while that strip was in flight and re-rendered
+            # the buttons. Leaving now would drop the entry and the watcher both,
+            # on a message that has buttons again: honour the deadline it set
+            if EXPIRY.get(message.id, 0) <= honoured:
+                break
     # genuinely gone — dismissed, or make_public deleted it. No reader left to
     # strand, so our state is just litter
     except hikari.NotFoundError:
         pass
     # the token died while the message still answers clicks, each one minting a
-    # fresh token. Dropping HISTORY here is itself the stranding this prevents
+    # fresh token. This watcher can never strip it, so release the claim: the
+    # next click re-arms one on a token young enough to reach the message
     except hikari.ClientHTTPResponseError:
         logger.warning("left components in place on interaction %s", interaction.id)
-        return
-    HISTORY.pop(message.id, None)
-    EXPIRY.pop(message.id, None)
+    finally:
+        EXPIRY.pop(message.id, None)
 
 
 @functools.lru_cache(4096)
@@ -305,47 +353,24 @@ async def autocomplete_name(
 
 async def switch_card(interaction: hikari.ComponentInteraction) -> None:
     """Switch card (for vampires with multiple versions)."""
-    origin_id = None
-    ids = interaction.custom_id[7:].split("-")
-    if len(ids) > 1:
-        origin_id = int(ids.pop(0))
-    new_id = int(ids.pop(0))
-    logger.debug("SWITCH from %s to %s", origin_id, new_id)
-    card_data = CARDS[new_id]
+    *stack, new_id = _parse_stack(interaction.custom_id)
+    logger.debug("SWITCH to %s over %s", new_id, stack)
+    card_data = _card(new_id)
     embeds = _build_embeds(interaction.guild_id, card_data)
     ephemeral = interaction.message.flags & hikari.MessageFlag.EPHEMERAL
-    # no history management on public messages, we create a new message
-    if ephemeral:
-        # no origin if we're not tracking history (eg. vampire variations)
-        if origin_id is None:
-            pass
-        elif origin_id > 0:
-            HISTORY[interaction.message.id].append(origin_id)
-        # a zero origin_id means we're coming back
-        elif HISTORY[interaction.message.id]:
-            HISTORY[interaction.message.id].pop()
-            if HISTORY[interaction.message.id]:
-                origin_id = HISTORY[interaction.message.id][-1]
-            else:
-                origin_id = None
-        # a variant button carries no origin, so < Back is rendered from the
-        # stack rather than from custom_id: without this the reader loses the
-        # way back while HISTORY still holds frames. .get(), never [], or a
-        # top-level variant click leaks an empty list into the defaultdict
-        stack = HISTORY.get(interaction.message.id)
-        if origin_id is None and stack:
-            origin_id = stack[-1]
-    components = _build_components(card_data, False, origin_id if ephemeral else None)
+    # a public message is never navigated in place: it answers with a new ephemeral,
+    # which starts its own trail
+    components = _build_components(card_data, False, stack if ephemeral else [])
     if ephemeral:
         await interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_UPDATE, embeds=embeds, components=components
         )
-        age = (
-            datetime.datetime.now(datetime.timezone.utc) - interaction.message.created_at
-        ).total_seconds()
-        EXPIRY[interaction.message.id] = asyncio.get_running_loop().time() + min(
-            COMPONENTS_TIMEOUT, TOKEN_LIFETIME - TOKEN_MARGIN - age
-        )
+        if interaction.message.id in EXPIRY:
+            EXPIRY[interaction.message.id] = _idle_until()
+        # no watcher: this message outlived the process that answered it. The
+        # button still worked — it carries its own stack — so re-arm the strip
+        else:
+            await _expire_components(interaction, interaction.message)
     # do not change the original message if it was public
     else:
         await interaction.create_initial_response(
@@ -359,8 +384,7 @@ async def switch_card(interaction: hikari.ComponentInteraction) -> None:
 
 async def make_public(interaction: hikari.ComponentInteraction) -> None:
     """Repost the message publicly (from an ephemeral)."""
-    card_id = int(interaction.custom_id[7:])
-    card_data = CARDS[card_id]
+    card_data = _card(int(interaction.custom_id[7:]))
     embeds = _build_embeds(interaction.guild_id, card_data)
     components = _build_components(card_data, True) if interaction.guild_id else []
     # work around to delete the original ephemeral
@@ -370,10 +394,8 @@ async def make_public(interaction: hikari.ComponentInteraction) -> None:
         embeds=[],
         components=[],
     )
-    HISTORY.pop(interaction.message.id, None)
-    # the ephemeral is about to be deleted, so its expiry watcher will only ever
-    # get a 404 and cannot clean this up itself
-    EXPIRY.pop(interaction.message.id, None)
+    # its watcher is left alone: popping here would strand a parked watcher with
+    # no entry, and its own 404 on the deleted message releases the claim anyway
     _, message = await asyncio.gather(
         interaction.delete_initial_response(),
         bot.rest.execute_webhook(
@@ -383,13 +405,12 @@ async def make_public(interaction: hikari.ComponentInteraction) -> None:
             components=components,
         ),
     )
-    # remove components and history after 5 minute
+    # remove components after 5 minutes
     await asyncio.sleep(COMPONENTS_TIMEOUT)
     try:
         await bot.rest.edit_webhook_message(
             interaction.application_id, interaction.token, message.id, components=[]
         )
-        HISTORY.pop(message.id, None)
     except hikari.NotFoundError:
         pass
 
@@ -520,9 +541,48 @@ def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> li
     return embeds
 
 
+def _card(card_id: int) -> krcg.Card:
+    """The card a button names, which upstream may have retired since it was drawn."""
+    try:
+        return CARDS[card_id]
+    except KeyError:
+        raise CommandFailed("This card is gone from the corpus: use the completion again!")
+
+
+def _switch_id(stack: list[int], target: int) -> str:
+    """A switch button: the trail to walk back, then the card to display.
+
+    The oldest frames are the ones dropped at the ceiling — the trail shortens
+    from its far end and the button stays under 100 characters, never a 400.
+    """
+    frames = (stack + [target])[-MAX_FRAMES:]
+    return "switch-" + "".join(f"{card_id:0{ID_WIDTH}d}" for card_id in frames)
+
+
+def _parse_stack(custom_id: str) -> list[int]:
+    """Ancestors then target, the reverse of _switch_id.
+
+    A deploy leaves the previous release's buttons live on open messages for as
+    long as their tokens last, and those spell the trail differently. They are
+    not answerable, but they must say so rather than reach the error funnel.
+    """
+    digits = custom_id[len("switch-") :]
+    if not digits or len(digits) % ID_WIDTH:
+        raise CommandFailed("This button is out of date: use the completion again!")
+    try:
+        return [int(digits[i : i + ID_WIDTH]) for i in range(0, len(digits), ID_WIDTH)]
+    except ValueError:
+        raise CommandFailed("This button is out of date: use the completion again!")
+
+
 def _build_components(
-    card_data: krcg.Card, public: bool, origin_id: int | None = None
+    card_data: krcg.Card, public: bool, stack: list[int] | None = None
 ) -> list[MessageActionRowBuilder]:
+    # one frame short of the ceiling, so < Back is always shorter than a ruling
+    # link and the two can never spell the same custom_id — which they would on
+    # a trail that ping-pongs between two cards, and Discord 400s a duplicate.
+    # switch_card already peels the target off, but the guarantee belongs here
+    stack = (stack or [])[-(MAX_FRAMES - 1) :]
     ret: list[MessageActionRowBuilder] = []
     row = bot.rest.build_message_action_row()
 
@@ -540,18 +600,20 @@ def _build_components(
 
     links = set()
     # "Make public" and "< Back" go in first and so are never the ones dropped:
-    # < Back is the only route into HISTORY, and dropping it strands the reader
+    # < Back is the reader's only way back up the trail
     if not public:
         add(hikari.ButtonStyle.SUCCESS, f"public-{card_data.id}", "Make public")
-    # the origin is deliberately not added to links: < Back pops the stack and
-    # that card's ruling-link button pushes onto it, so both are offered
-    if origin_id and not public:
-        add(hikari.ButtonStyle.PRIMARY, f"switch-0-{origin_id}", "< Back")
+    # the parent is deliberately not added to links: < Back walks up to it while
+    # that card's ruling-link button descends into it, so both are offered
+    if stack and not public:
+        add(hikari.ButtonStyle.PRIMARY, _switch_id(stack[:-1], stack[-1]), "< Back")
+    # a variant is another version of the card on screen, not a step down from
+    # it: it inherits the trail rather than extending it
     for variant in sorted(card_data.variants, key=lambda v: v.suffix):
         links.add(variant.id)
         if not add(
             hikari.ButtonStyle.PRIMARY,
-            f"switch-{variant.id}",
+            _switch_id(stack, variant.id),
             "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix,
         ):
             logger.warning("%s: dropped variant buttons, no room", card_data.full_name)
@@ -567,7 +629,7 @@ def _build_components(
         links.add(card.id)
         if not add(
             hikari.ButtonStyle.SECONDARY,
-            f"switch-{card_data.id}-{card.id}",
+            _switch_id(stack + [card_data.id], card.id),
             card.unique_name,
         ):
             logger.warning("%s: dropped ruling links, no room", card_data.full_name)
