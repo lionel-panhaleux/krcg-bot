@@ -6,7 +6,6 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-011 — Version the custom_id trail encoding and guard id width at load — todo — tickets/T-011.md
 T-012 — A failed doc fetch is not an absence — todo — tickets/T-012.md
 
 ## Next

@@ -42,9 +42,13 @@ CUSTOM_ID_MAX = 100
 
 #: A switch button carries its whole navigation stack as fixed-width card ids,
 #: the target last: every id in the corpus is exactly 6 digits, so no separator
-#: is needed and the depth the 100-char custom_id affords is a constant
+#: is needed and the depth the 100-char custom_id affords is a constant.
+#: The version char is what a later encoding change bumps: without it a new
+#: format that is also a multiple of ID_WIDTH digits parses as plausible ids
+#: and answers with the wrong cards.
 ID_WIDTH = 6
-MAX_FRAMES = (CUSTOM_ID_MAX - len("switch-")) // ID_WIDTH
+SWITCH_PREFIX = "switch-1"
+MAX_FRAMES = (CUSTOM_ID_MAX - len(SWITCH_PREFIX)) // ID_WIDTH
 
 #: Disciplines emojis in guilds
 EMOJIS: dict[hikari.Snowflake, dict[str, hikari.Snowflake]] = {}
@@ -222,6 +226,13 @@ async def load_cards() -> None:
     global CARDS
     async with aiohttp.ClientSession() as session:
         CARDS = await krcg.load_online(session)
+    # a wider id spells a wider frame and desyncs every trail parsed after it,
+    # silently: refuse to serve rather than answer with the wrong cards
+    for card_data in CARDS.cards():
+        if not 0 <= card_data.id < 10**ID_WIDTH:
+            raise RuntimeError(
+                f"Card id {card_data.id} does not fit {ID_WIDTH} digits: buttons cannot spell it"
+            )
     logger.info("Loaded %s cards", len(CARDS))
 
 
@@ -556,7 +567,7 @@ def _switch_id(stack: list[int], target: int) -> str:
     from its far end and the button stays under 100 characters, never a 400.
     """
     frames = (stack + [target])[-MAX_FRAMES:]
-    return "switch-" + "".join(f"{card_id:0{ID_WIDTH}d}" for card_id in frames)
+    return SWITCH_PREFIX + "".join(f"{card_id:0{ID_WIDTH}d}" for card_id in frames)
 
 
 def _parse_stack(custom_id: str) -> list[int]:
@@ -565,8 +576,12 @@ def _parse_stack(custom_id: str) -> list[int]:
     A deploy leaves the previous release's buttons live on open messages for as
     long as their tokens last, and those spell the trail differently. They are
     not answerable, but they must say so rather than reach the error funnel.
+    The version is checked first: width and digits alone cannot tell one
+    encoding from another that happens to agree on both.
     """
-    digits = custom_id[len("switch-") :]
+    if not custom_id.startswith(SWITCH_PREFIX):
+        raise CommandFailed("This button is out of date: use the completion again!")
+    digits = custom_id[len(SWITCH_PREFIX) :]
     if not digits or len(digits) % ID_WIDTH:
         raise CommandFailed("This button is out of date: use the completion again!")
     try:

@@ -4,8 +4,10 @@ Never against exact card text: the corpus is live, and upstream moves it.
 """
 
 import asyncio
+import copy
 import inspect
 import re
+import unittest.mock
 import urllib.parse
 
 import hikari
@@ -14,7 +16,7 @@ import krcg.models
 import krcg_bot
 import pytest
 
-#: https://discord.com/developers/docs/resources/message#embed-object-embed-limits
+#: https://docs.discord.com/developers/resources/message#embed-object-embed-limits
 FIELD_VALUE = 1024
 FIELD_NAME = 256
 DESCRIPTION = 4096
@@ -301,12 +303,42 @@ def test_components_ping_pong_trail_draws_no_duplicate(cards):
 
 
 def test_parse_stack_refuses_a_previous_release_button(cards):
-    """A deploy leaves old-format buttons live; they must not reach the funnel."""
-    for custom_id in ("switch-0-200123", "switch-100001-100002", "switch-", "switch-12345"):
+    """A deploy leaves old-format buttons live; they must not reach the funnel.
+
+    The unversioned T-010 trail is the case width alone cannot catch: it is
+    digits in multiples of ID_WIDTH, exactly like the format that replaced it.
+    """
+    stale = ["switch-0-200123", "switch-100001-100002", "switch-", "switch-12345"]
+    # the T-010 encoding at every depth it could have emitted, library and crypt
+    for first in (100001, 200001):
+        stale += [
+            "switch-" + "".join(f"{first + i:0{krcg_bot.ID_WIDTH}d}" for i in range(depth))
+            for depth in range(1, krcg_bot.MAX_FRAMES + 1)
+        ]
+    for custom_id in stale:
         with pytest.raises(krcg_bot.CommandFailed):
             krcg_bot._parse_stack(custom_id)
-    # the one old form that is still honest: a bare target, no trail
-    assert krcg_bot._parse_stack("switch-100001") == [100001]
+
+
+def test_load_cards_refuses_an_id_too_wide_to_spell(cards):
+    """Loud at startup, because CI is loud too late.
+
+    test_card_ids_are_fixed_width reds on the next push — after a production bot
+    has already emitted frames that _parse_stack desyncs into the wrong cards.
+    """
+    overwide = copy.copy(next(cards.cards()))
+    overwide.id = 10**krcg_bot.ID_WIDTH
+
+    async def _corpus(session):
+        return krcg.CardDict({overwide.id: overwide})
+
+    served = krcg_bot.CARDS
+    try:
+        with unittest.mock.patch.object(krcg, "load_online", _corpus):
+            with pytest.raises(RuntimeError):
+                asyncio.run(krcg_bot.load_cards())
+    finally:
+        krcg_bot.CARDS = served
 
 
 def test_card_lookup_refuses_a_retired_id(cards):
