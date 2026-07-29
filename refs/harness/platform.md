@@ -25,9 +25,9 @@ Claude Code behaviour the harness depends on. External reality: verify against c
 | Verbose work whose result is a summary | Subagent |
 
 ## Hook semantics relied on here
-- Hooks in `settings.json` are NOT picked up mid-session: the session that edits a hook does not run it. Restart or `/reload-project`.
+- Direct edits to hooks in settings files **are** picked up mid-session, by the file watcher (`code.claude.com/docs/en/hooks.md`, raw page, 2026-07-29). So a broken `audit-check.sh` wiring goes live for the session that wrote it — test the script standalone before saving, and do not assume a bad edit is inert until restart. The captured-snapshot behaviour applies to hooks changed by an external tool, not by an edit here.
 - `Stop` hook exit 2 blocks the turn from ending and feeds stderr back to the model. Claude Code overrides the hook after 8 consecutive blocks — the gate is strong, not absolute.
-- `stop_hook_active: true` in the hook's stdin means a Stop hook is already running; every Stop hook here exits 0 on it to avoid a loop.
+- `stop_hook_active: true` in the hook's stdin means the session is **already continuing because of a Stop hook**, not that one is running concurrently (`hooks.md`, 2026-07-29). Every Stop hook here exits 0 on it, which is still the right response: it is what stops a blocked turn re-blocking forever.
 - `SessionStart` stdout on exit 0 is added to the session — that is how `plan-brief.sh` injects the plan without model effort.
 - Exit 1 is a non-blocking error, not a failure. Only 2 blocks.
 

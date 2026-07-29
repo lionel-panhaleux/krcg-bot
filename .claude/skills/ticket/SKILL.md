@@ -14,7 +14,7 @@ Runs inline in the main conversation ONLY — grilling needs AskUserQuestion, wh
 
 2. **Context.** Read `PLAN.md` and `refs/shared/plan-format.md`. Check for duplicate or conflicting tickets — if found, surface them to the requestor instead of filing.
 
-3. **Route by subject.** Route by what the ticket changes, not its blast radius — a process/doctrine ticket is harness-only even if it affects all future work. product/scope → `pm`; technical → `eng`; harness/process → `harness` (its output contract travels in the spawn prompt); several only when the ticket itself changes several domains. Spawn ONLY the relevant advisors, in parallel, via the Agent tool. Pass the request verbatim. Each returns position / top risks / hardest questions per its output contract.
+3. **Route by subject.** Route by what the ticket changes, not its blast radius — a process/doctrine ticket is harness-only even if it affects all future work. product/scope → `pm`; technical → `eng`; harness/process → `harness`; several only when the ticket itself changes several domains. Spawn ONLY the relevant advisors, in parallel, via the Agent tool. Pass the request verbatim. Each returns position / top risks / hardest questions per its output contract.
 
 4. **Grill the requestor.**
    - `lionel` → AskUserQuestion with the advisors' hardest questions. ≤4 per round, up to ~3 rounds; stop as soon as answers stop changing the ticket.
@@ -26,8 +26,8 @@ Runs inline in the main conversation ONLY — grilling needs AskUserQuestion, wh
 
 6. **Land it.** Allocate `T-NNN` per plan-format (collision rule applies), write `tickets/T-NNN.md` (filing record — no status/priority fields), add the PLAN.md line under the chosen section with status `todo` (strategic: `awaiting-sign-off` and a summary to Lionel — or `todo`/`in-progress` directly when Lionel signed off live during grilling, recorded in the ticket), bump the counter. Commit: `T-NNN: filed — <one-line why>`. One request yielding several tickets is one commit — `T-NNN, T-NNN, T-NNN: filed — <why>` — since they share the PLAN.md edit.
 
-7. **Standing constraints.** If grilling settled something that outlives the ticket — a rejection, a "not until X" trigger — write it into the operative doc it governs (`refs/<agent>/INDEX.md`, a rule, the code) in the same commit. There is no decisions log: a constraint with no home is not a decision. A task in the ticket is not a home — the ticket may be dropped, and it is deleted when it ships. Defer the write only for a constraint that becomes true only once the ticket lands.
+   A filing commit touches `tickets/` and `PLAN.md`, and nothing else (T-013). That is what keeps filing free of the pre-commit review and of the session-end audit — both watch paths a filing has no reason to enter. A constraint grilling settled is recorded in the ticket and lands in the doc it governs when the ticket ships or is dropped, per plan-format §Lifecycle: at filing its home is a guess, and folding an unrelated fix into the commit is what pulled a review into `804b91f`.
 
 ## Token discipline
 
-No advisor spawned outside its domain. Advisor replies ≤150 words. Do not pad grilling rounds.
+No advisor spawned outside its domain. Advisor replies ≤150 words. Do not pad grilling rounds. Ticket body budget: plan-format §Ticket file.

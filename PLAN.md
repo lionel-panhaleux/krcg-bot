@@ -6,10 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-013 — Filing is bookkeeping — delete /ticket step 7 — todo — tickets/T-013.md
-T-014 — Cap the prose — tickets, commit bodies, reports — todo — tickets/T-014.md
-T-015 — Advisors and audits stop inventing risk — todo — tickets/T-015.md
-T-016 — Slim refs/eng/INDEX.md — todo — tickets/T-016.md
+(empty)
 
 ## Next
 
