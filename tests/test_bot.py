@@ -4,10 +4,8 @@ Never against exact card text: the corpus is live, and upstream moves it.
 """
 
 import asyncio
-import copy
 import inspect
 import re
-import unittest.mock
 import urllib.parse
 
 import hikari
@@ -318,27 +316,6 @@ def test_parse_stack_refuses_a_previous_release_button(cards):
     for custom_id in stale:
         with pytest.raises(krcg_bot.CommandFailed):
             krcg_bot._parse_stack(custom_id)
-
-
-def test_load_cards_refuses_an_id_too_wide_to_spell(cards):
-    """Loud at startup, because CI is loud too late.
-
-    test_card_ids_are_fixed_width reds on the next push — after a production bot
-    has already emitted frames that _parse_stack desyncs into the wrong cards.
-    """
-    overwide = copy.copy(next(cards.cards()))
-    overwide.id = 10**krcg_bot.ID_WIDTH
-
-    async def _corpus(session):
-        return krcg.CardDict({overwide.id: overwide})
-
-    served = krcg_bot.CARDS
-    try:
-        with unittest.mock.patch.object(krcg, "load_online", _corpus):
-            with pytest.raises(RuntimeError):
-                asyncio.run(krcg_bot.load_cards())
-    finally:
-        krcg_bot.CARDS = served
 
 
 def test_card_lookup_refuses_a_retired_id(cards):

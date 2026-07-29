@@ -9,7 +9,7 @@ paths:
 Discord API limits. Breaking one fails at runtime, not in review:
 
 - Embed field value ≤1024 chars; embed description ≤4096 (`_split_text` exists for this).
-- ≤5 action rows per message, ≤5 buttons per row, ≤25 autocomplete choices. The row cap is the *legacy* message limit; the wider 40-component ceiling requires the `IS_COMPONENTS_V2` flag, under which `content` and `embeds` stop working — so reaching for 40 means giving up the embed every card answer is built on. Sourced 2026-07-28, `docs.discord.com/developers/components/reference` (read the raw page: fetch summarizers drop these lines).
+- ≤5 action rows per message, ≤5 buttons per row, ≤25 autocomplete choices. The row cap is the *legacy* message limit; the wider 40-component ceiling requires the `IS_COMPONENTS_V2` flag, under which `content` and `embeds` stop working — so reaching for 40 means giving up the embed every card answer is built on. Sourced 2026-07-28, `docs.discord.com/developers/components/reference`.
 - `custom_id` ≤100 chars, and the trail encoding spends them: 98 at full depth. Not headroom.
 - An interaction must be acknowledged within 3s (`_autocomplete_cache` exists for this).
 

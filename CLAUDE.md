@@ -19,7 +19,7 @@ Discord bot displaying V:tES cards, texts and rulings, from the VEKN official ca
 - Verify before done: `just quality` passes, plus the check `refs/eng/INDEX.md` §Workflow names for the surface you touched. Show the evidence — the command and what it returned — never an assertion that it works.
 - Bot code, constitutional docs, `ansible/`, `.github/workflows/` and `.claude/hooks/` with its wiring in `.claude/settings.json` get an independent agent review before commit (Lionel, T-006: use the Agent tool for these reviews and for `/ticket` advisors). Tombstones, plan bookkeeping, `ansible/README.md` prose and non-constitutional refs corrections are exempt.
 - Style: KISS, local, DRY, short. No narration comments, no explanation-in-code, no patterns added for human readability.
-- Tech claims: current docs first (context7), never training-data recall — for any stack, version, or API question.
+- Tech claims: current docs first (context7), never training-data recall — for any stack, version, or API question. A failed fetch is not an absence: follow cross-host redirects, read the whole raw page rather than a summary, and record "unverified", never "undocumented".
 - Game-domain claims: the `vtes` skill is the reference for cards, rules and rulings. Never answer from recall.
 
 ## Approval tiers

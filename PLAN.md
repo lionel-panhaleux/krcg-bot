@@ -6,7 +6,7 @@ Line format: `T-NNN — title — status — tickets/T-NNN.md` · sub-tickets ap
 
 ## Now
 
-T-012 — A failed doc fetch is not an absence — todo — tickets/T-012.md
+(empty)
 
 ## Next
 
