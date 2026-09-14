@@ -11,7 +11,7 @@ WorkingDirectory={{ app_dir }}
 # a restart is the only way the bot picks up new cards and rulings, so it is
 # scheduled: systemd stops it after a day and Restart=always brings it back
 RuntimeMaxSec={{ max_runtime }}
-# matches the legacy deploy: __debug__ off, so logging stays at INFO
+# __debug__ off, so logging stays at INFO instead of DEBUG-logging every query
 Environment=PYTHONOPTIMIZE=1
 # krcg caches the corpus under TMPDIR; a /tmp file owned by another user is
 # unwritable, and krcg silently falls back to *reading* it — stale forever

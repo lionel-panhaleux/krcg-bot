@@ -122,33 +122,5 @@ still the same run — `Restart=always` means a crash-looping bot passes through
 `active` between restarts, and a deploy that leaves the bot down is a failed
 deploy.
 
-## First converge
-
-Nothing is deployable yet: the repo has **no GitHub releases**, so there is no
-wheel to download. `just release` cuts the first one. To cut one without the
-version bump: `just build` then
-`gh release create vX.Y --generate-notes dist/*.whl`.
-
-
-The bot already runs on gravelines from a hand-made `krcg-bot.service` at the
-same path this playbook writes, as `User=lpanhaleux` out of
-`/home/lpanhaleux/projects/krcg-bot`. Checked, and it decides the cutover:
-taking over the same unit name means systemd stops the old process before
-starting the new one, so there is no window with two gateways on one token. On
-any other host, check first — a differently-named unit left enabled *is* that
-window:
-
-```bash
-systemctl list-unit-files --type=service | grep -i krcg
-```
-
-Two consequences of that cutover:
-
-- **The vault must hold the token the bot runs on today.** It lives inline in
-  the current unit, which this playbook overwrites; read it out first. The
-  overwrite is backed up on the host, but a wrong token means a crash loop.
-- The old tree under `/home/lpanhaleux/projects/krcg-bot` is left alone, and is
-  yours to remove once the new unit is up.
-
 `just deploy` is outside the workflow's `concurrency` group: converging from the
 laptop while CI converges restarts the bot twice.
