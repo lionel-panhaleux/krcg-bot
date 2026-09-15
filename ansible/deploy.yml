@@ -159,8 +159,6 @@
         group: "{{ service_user }}"
         mode: "0750"
 
-    # backup: the unit this replaces carries the live token inline, and on the
-    # first converge that is the only copy of it on the host
     - name: Write the token
       ansible.builtin.copy:
         content: "DISCORD_TOKEN={{ discord_token }}\n"
@@ -168,7 +166,6 @@
         owner: root
         group: "{{ service_user }}"
         mode: "0640"
-        backup: true
       no_log: true
       notify: Restart krcg-bot
 
@@ -179,7 +176,6 @@
         owner: root
         group: root
         mode: "0644"
-        backup: true
       notify: Restart krcg-bot
 
     - name: Enable and start the service
