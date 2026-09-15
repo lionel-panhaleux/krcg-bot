@@ -31,9 +31,7 @@ message. So a button survives a restart or a deploy, and nothing has to be rebui
   ping-pongs between two cards (the corpus holds such pairs), and a duplicate is a 400 on the whole
   message.
 - **Fixed width holds only while every corpus id is 6 digits.** A wider id desyncs every frame
-  parsed after it, silently. The bot refuses to start on such a corpus, and a test checks the
-  corpus's ids in CI; both, because the test fires only on a push ([corpus.md](corpus.md#card-ids)).
-  The startup guard itself is untested: only a synthetic card could reach it.
+  parsed after it, silently ([corpus.md](corpus.md#card-ids)).
 
 ## When rows run out (2026-07-26)
 

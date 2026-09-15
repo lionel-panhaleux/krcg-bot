@@ -32,7 +32,9 @@ re-check them against the locked version in `/upkeep`.
 ## Card ids
 
 Every id is **exactly 6 digits** today. The button trail depends on it ([buttons.md](buttons.md)):
-`load_cards` raises at start on any id that does not fit, and a test sweeps the corpus in CI.
+`load_cards` raises at start on any id that does not fit, and a test sweeps the corpus in CI — both,
+because the test fires only on a push, and a quiet month would let a live bot answer with the wrong
+cards first.
 
 ## Couplings the `<6` ceiling guards
 
