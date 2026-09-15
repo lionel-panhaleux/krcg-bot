@@ -313,11 +313,12 @@ def test_components_ping_pong_trail_draws_no_duplicate(cards):
 def test_parse_stack_refuses_a_previous_release_button(cards):
     """A deploy leaves old-format buttons live; they must not reach the funnel.
 
-    The unversioned T-010 trail is the case width alone cannot catch: it is
-    digits in multiples of ID_WIDTH, exactly like the format that replaced it.
+    The unversioned trail, `switch-` then 6-digit ids, is the case width alone
+    cannot catch: it is digits in multiples of ID_WIDTH, exactly like the format
+    that replaced it.
     """
     stale = ["switch-0-200123", "switch-100001-100002", "switch-", "switch-12345"]
-    # the T-010 encoding at every depth it could have emitted, library and crypt
+    # the unversioned encoding at every depth it could have emitted, library and crypt
     for first in (100001, 200001):
         stale += [
             "switch-" + "".join(f"{first + i:0{krcg_bot.ID_WIDTH}d}" for i in range(depth))
@@ -329,7 +330,7 @@ def test_parse_stack_refuses_a_previous_release_button(cards):
 
 
 def test_card_lookup_refuses_a_retired_id(cards):
-    """The failure T-010 introduces: a button outliving the card it names."""
+    """A button outliving the card it names."""
     absent = 2
     assert absent not in cards
     with pytest.raises(krcg_bot.CommandFailed):

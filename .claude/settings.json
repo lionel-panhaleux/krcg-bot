@@ -3,22 +3,14 @@
   "hooks": {
     "SessionStart": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/plan-brief.sh"
-          }
-        ]
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/board.sh" }]
       }
     ],
-    "Stop": [
+    "PostToolUse": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/audit-check.sh"
-          }
-        ]
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/edit-guard.py" }]
       }
     ]
   }

@@ -17,7 +17,7 @@ For more information please visit [white-wolf.com](http://www.white-wolf.com).
 ## Use it
 
 This bot lets you retrieve cards official text, image and rulings:
-![Bot Example](https://raw.githubusercontent.com/lionel-panhaleux/krcg-bot/master/bot-example.png)
+![Bot Example](https://raw.githubusercontent.com/lionel-panhaleux/krcg-bot/main/bot-example.png)
 
 To call the bot, use slash commands: `/card` followed by a card name.
 Make sure you use the name autocompletion or you might not get the result you want.
@@ -55,5 +55,5 @@ export DISCORD_TOKEN="discord_token_of_your_bot"
 ```
 
 `just test` runs the suite, which needs the network — it asserts against the
-live card corpus. The deploy of the hosted instance lives in
-[`ansible/`](ansible/README.md).
+live card corpus. The release and the deploy of the hosted instance are in
+[`wiki/operations.md`](wiki/operations.md).
