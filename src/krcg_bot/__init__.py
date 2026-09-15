@@ -27,8 +27,8 @@ CARDS: krcg.CardDict = krcg.CardDict()
 #: Remove buttons after that many seconds
 COMPONENTS_TIMEOUT = 300
 
-#: An interaction token dies 15 minutes after its message. Never wait past that:
-#: the strip would fail and leave live buttons over state we had already dropped.
+#: A watcher's interaction token dies TOKEN_LIFETIME after that watcher starts:
+#: it never waits past that, since its strip would fail.
 TOKEN_LIFETIME = 900
 TOKEN_MARGIN = 30
 
@@ -279,6 +279,9 @@ async def _expire_components(
     message: hikari.Message | None = None,
 ) -> None:
     """Strip the buttons once the message has gone COMPONENTS_TIMEOUT unused.
+
+    Returns only when the buttons are stripped or released, minutes later: a
+    handler awaits it last, since anything after it runs in a task a restart kills.
 
     A caller that already holds the message passes it, so the claim lands before
     this coroutine's first await. The caller that does not must learn the id

@@ -1,11 +1,9 @@
 ---
-# Install a built wheel onto the bot host and restart the unit.
-#
-#   uv build --wheel
-#   DEPLOY_HOST=<host> ansible-playbook deploy.yml -e wheel=../dist/<name>.whl
-#
-# `just deploy` does both. The token comes from vault.yml; -e discord_token=...
-# overrides it, since extra-vars outrank vars_files.
+# Install a release's wheel onto the bot host and restart the unit. Only a
+# GitHub release's wheel is ever deployed: `just deploy [tag]` or deploy.yml
+# download it and pass -e wheel=../dist/<name>.whl (wiki/operations.md#deploy).
+# The token comes from vault.yml; -e discord_token=... overrides it, since
+# extra-vars outrank vars_files.
 - name: Deploy krcg-bot
   hosts: bot
   become: true

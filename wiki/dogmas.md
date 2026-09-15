@@ -74,7 +74,8 @@ refactors.
 - **What the suite does not cover** is verified another way, or said to be unverified: the expiry
   watcher needs a 14.5-minute wait and a race to reach its branches — a change there is driven under a
   virtual clock outside the suite, never argued; the `card`, `switch_card` and `make_public` handlers
-  are verified by running the bot, `just serve` with the dev token against a test guild.
+  are verified by running the bot, `just serve` with the dev token against a test guild; and
+  `load_cards`'s id-width guard ships untested, since only a synthetic card reaches it.
 - **Weakening or deleting a test is an egress rejection** unless the wiki-declared behaviour changed.
 
 `just lint`, `just typecheck` and `just test` pass on every landing.
