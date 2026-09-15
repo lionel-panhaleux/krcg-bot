@@ -459,6 +459,16 @@ def _replace_disciplines(guild_id: hikari.Snowflake | None, text: str) -> str:
     )
 
 
+def _ruling_card(match: re.Match[str]) -> str:
+    """A ruling's card token, {id|Name} or bare {Name}, as italics."""
+    name = match.group(1)
+    card_id, pipe, rest = name.partition("|")
+    if pipe and card_id.isdecimal():
+        card = CARDS.get(int(card_id))
+        name = card.unique_name if card else rest
+    return f"*{name}*"
+
+
 def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> list[hikari.Embed]:
     """Build the embeds to display a card."""
     codex_url = "https://codex-of-the-damned.org/en/card-search.html?" + urllib.parse.urlencode(
@@ -520,8 +530,8 @@ def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> li
             rulings += f"**BANNED since {card_data.banned}**\n"
         for ruling in card_data.rulings:
             # replace cards with simple italics, eg.
-            # {KRCG News Radio} -> *KRCG News Radio*
-            ruling_text = re.sub(r"\{([^}]+)\}", r"*\1*", ruling.text)
+            # {100916|Hidden Lurker} -> *Hidden Lurker*
+            ruling_text = re.sub(r"\{([^}]+)\}", _ruling_card, ruling.text)
             # replace reference with markdown link, eg.
             # [LSJ 20101010] -> [[LSJ 20101010]](https://googlegroupslink)
             for reference in ruling.references:
