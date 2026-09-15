@@ -9,14 +9,12 @@ import re
 import typing
 import urllib.parse
 
-from hikari.api import MessageActionRowBuilder
-
 import aiohttp
 import hikari
-from hikari.impl.special_endpoints import AutocompleteChoiceBuilder
-
 import krcg
 import krcg.models
+from hikari.api import MessageActionRowBuilder
+from hikari.impl.special_endpoints import AutocompleteChoiceBuilder
 
 logger = logging.getLogger()
 logging.basicConfig(format="[%(levelname)7s] %(message)s")
@@ -109,7 +107,7 @@ async def on_ready(event: hikari.StartedEvent) -> None:
         registered_commands = await bot.rest.fetch_application_commands(
             application=application,
         )
-        if set(c.name for c in commands) ^ set(c.name for c in registered_commands):
+        if {c.name for c in commands} ^ {c.name for c in registered_commands}:
             logger.info("Updating commands: %s", commands)
             registered_commands = await bot.rest.set_application_commands(
                 application=application,
@@ -149,7 +147,7 @@ async def on_connected(event: hikari.GuildAvailableEvent) -> None:
 async def _interaction_response(interaction: hikari.PartialInteraction, content: str) -> None:
     """Default response to interaction (in case of error)"""
     try:
-        if hasattr(interaction, "create_initial_response"):
+        if isinstance(interaction, hikari.interactions.base_interactions.MessageResponseMixin):
             await interaction.create_initial_response(
                 hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE,
                 content,
@@ -210,7 +208,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent) -> None:
         logger.info("Command failed: %s - %s", event.interaction, exc.args)
         if exc.args:
             await _interaction_response(event.interaction, exc.args[0])
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.info("Command failed: Timeout")
         await _interaction_response(
             event.interaction,
@@ -482,7 +480,7 @@ def _build_embeds(guild_id: hikari.Snowflake | None, card_data: krcg.Card) -> li
     # cache busting
     parsed_url = urllib.parse.urlparse(card_data.url)
     image_url = parsed_url._replace(
-        path=f"/bust/{datetime.datetime.now():%Y%m%d%H}" + parsed_url.path
+        path=f"/bust/{datetime.datetime.now(datetime.UTC):%Y%m%d%H}" + parsed_url.path
     ).geturl()
     embed.set_image(image_url)
     if isinstance(card_data, krcg.LibraryCard) and card_data.burn_option:

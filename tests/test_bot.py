@@ -6,13 +6,16 @@ Never against exact card text: the corpus is live, and upstream moves it.
 import asyncio
 import inspect
 import re
+import typing
 import urllib.parse
 
 import hikari
 import krcg
 import krcg.models
-import krcg_bot
 import pytest
+from hikari.api.special_endpoints import InteractiveButtonBuilder
+
+import krcg_bot
 
 #: https://docs.discord.com/developers/resources/message#embed-object-embed-limits
 FIELD_VALUE = 1024
@@ -44,6 +47,14 @@ def fields(embed) -> dict[str, str]:
     return {field.name: field.value for field in embed.fields}
 
 
+def buttons_of(rows) -> list[InteractiveButtonBuilder]:
+    """Every component drawn: all of them buttons that dispatch back to the bot."""
+    components = [c for row in rows for c in row.components]
+    found = [c for c in components if isinstance(c, InteractiveButtonBuilder)]
+    assert len(found) == len(components)
+    return found
+
+
 def embed_length(embeds) -> int:
     return sum(
         len(e.title or "")
@@ -62,7 +73,7 @@ def test_embeds_crypt(cards):
     )
     embed = krcg_bot._build_embeds(None, card)[0]
     assert embed.title == card.unique_name
-    assert urllib.parse.quote_plus(card.full_name) in embed.url
+    assert urllib.parse.quote_plus(card.full_name) in (embed.url or "")
     assert fields(embed)["Type"] == "Vampire"
     assert card.clan in fields(embed)["Clan"]
     assert f"Capacity {card.capacity}" in fields(embed)["Clan"]
@@ -80,7 +91,7 @@ def test_embeds_variant_card_title_disambiguates(cards):
     card = find(cards, lambda c: len(c.variants) > 1)
     embed = krcg_bot._build_embeds(None, card)[0]
     assert embed.title == card.unique_name
-    assert card.suffix in embed.title
+    assert card.suffix in (embed.title or "")
     for variant in card.variants:
         assert embed.title != cards[variant.id].unique_name
 
@@ -174,16 +185,17 @@ def test_embeds_long_rulings_split(cards):
     assert "Rulings" not in fields(embeds[0])
     for embed in embeds[1:]:
         assert embed.description
-        assert card.unique_name in embed.title
+        assert card.unique_name in (embed.title or "")
 
 
 @pytest.fixture
 def guild(cards):
     """A guild that defines every discipline and icon emoji, as on_connected would."""
-    guild_id = 1234567890
+    guild_id = hikari.Snowflake(1234567890)
     names = [n for n in cards.search_dimensions["discipline"] if n]
     krcg_bot.EMOJIS[guild_id] = {
-        krcg_bot.EMOJI_NAME_MAP.get(n, n): 999 for n in names + list(krcg_bot.EMOJI_NAME_MAP)
+        krcg_bot.EMOJI_NAME_MAP.get(n, n): hikari.Snowflake(999)
+        for n in names + list(krcg_bot.EMOJI_NAME_MAP)
     }
     yield guild_id
     del krcg_bot.EMOJIS[guild_id]
@@ -226,7 +238,7 @@ def test_embeds_hold_discord_limits(cards):
 def test_components_variants(cards):
     card = find(cards, lambda c: len(c.variants) > 1)
     rows = krcg_bot._build_components(card, public=False)
-    buttons = {b.label: b.custom_id for row in rows for b in row.components}
+    buttons = {b.label: b.custom_id for b in buttons_of(rows)}
     for variant in card.variants:
         label = "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix
         assert krcg_bot._parse_stack(buttons[label]) == [variant.id]
@@ -236,7 +248,7 @@ def test_components_variants_inherit_the_trail(cards):
     """A variant is another version of the card on screen, not a step down from it."""
     card = find(cards, lambda c: len(c.variants) > 1)
     rows = krcg_bot._build_components(card, public=False, stack=[100001, 100002])
-    buttons = {b.label: b.custom_id for row in rows for b in row.components}
+    buttons = {b.label: b.custom_id for b in buttons_of(rows)}
     for variant in card.variants:
         label = "Base" if variant.type == krcg.models.Variant.Type.BASE else variant.suffix
         assert krcg_bot._parse_stack(buttons[label]) == [100001, 100002, variant.id]
@@ -244,10 +256,8 @@ def test_components_variants_inherit_the_trail(cards):
 
 def test_components_public_button(cards):
     card = find(cards, lambda c: True)
-    ephemeral = {
-        b.custom_id for row in krcg_bot._build_components(card, False) for b in row.components
-    }
-    public = {b.custom_id for row in krcg_bot._build_components(card, True) for b in row.components}
+    ephemeral = {b.custom_id for b in buttons_of(krcg_bot._build_components(card, False))}
+    public = {b.custom_id for b in buttons_of(krcg_bot._build_components(card, True))}
     assert f"public-{card.id}" in ephemeral
     assert f"public-{card.id}" not in public
 
@@ -256,21 +266,21 @@ def test_components_back_button(cards):
     """< Back walks up one frame and carries the rest of the trail with it."""
     card = find(cards, lambda c: True)
     rows = krcg_bot._build_components(card, public=False, stack=[100001, 100002, 100003])
-    buttons = {b.label: b.custom_id for row in rows for b in row.components}
+    buttons = {b.label: b.custom_id for b in buttons_of(rows)}
     assert krcg_bot._parse_stack(buttons["< Back"]) == [100001, 100002, 100003]
 
 
 def test_components_no_back_button_at_the_root(cards):
     card = find(cards, lambda c: True)
     rows = krcg_bot._build_components(card, public=False)
-    assert "< Back" not in {b.label for row in rows for b in row.components}
+    assert "< Back" not in {b.label for b in buttons_of(rows)}
 
 
 def test_components_ruling_links(cards):
     """A ruling link descends: the card on screen becomes the trail's last frame."""
     card = find(cards, lambda c: any(r.cards for r in c.rulings))
     rows = krcg_bot._build_components(card, public=False, stack=[100001])
-    buttons = {b.custom_id for row in rows for b in row.components}
+    buttons = {b.custom_id for b in buttons_of(rows)}
     cited = next(r for r in card.rulings if r.cards).cards[0]
     assert krcg_bot._switch_id([100001, card.id], cited.id) in buttons
 
@@ -294,7 +304,7 @@ def test_components_ping_pong_trail_draws_no_duplicate(cards):
     for depth in range(krcg_bot.MAX_FRAMES + 3):
         stack = [(card.id if i % 2 == 0 else other.id) for i in range(depth)]
         rows = krcg_bot._build_components(card, public=False, stack=stack)
-        ids = [b.custom_id for row in rows for b in row.components]
+        ids = [b.custom_id for b in buttons_of(rows)]
         assert len(ids) == len(set(ids)), (depth, ids)
         for custom_id in ids:
             assert len(custom_id) <= CUSTOM_ID, (depth, custom_id)
@@ -340,15 +350,15 @@ def test_components_hold_discord_limits(cards):
         for public in (False, True):
             rows = krcg_bot._build_components(card, public, stack=deepest)
             assert len(rows) <= ROWS, card.full_name
-            ids = [b.custom_id for row in rows for b in row.components]
+            ids = [b.custom_id for b in buttons_of(rows)]
             # a repeated custom_id is a 400 from Discord, not a duplicate button
             assert len(ids) == len(set(ids)), card.full_name
             for row in rows:
                 assert 0 < len(row.components) <= BUTTONS, card.full_name
-                for button in row.components:
-                    assert 0 < len(button.label) <= LABEL, (card.full_name, button.label)
-                    assert len(button.custom_id) <= CUSTOM_ID, card.full_name
-                    assert button.custom_id[:6] in krcg_bot.COMPONENTS, button.custom_id
+            for button in buttons_of(rows):
+                assert 0 < len(button.label or "") <= LABEL, (card.full_name, button.label)
+                assert len(button.custom_id) <= CUSTOM_ID, card.full_name
+                assert button.custom_id[:6] in krcg_bot.COMPONENTS, button.custom_id
 
 
 def test_component_dispatch_keys_are_sliceable():
@@ -378,7 +388,9 @@ def test_the_fake_matches_the_interaction_it_stands_for(cards):
 
 def complete(name):
     interaction = FakeInteraction()
-    asyncio.run(krcg_bot.autocomplete_name(interaction, name))
+    asyncio.run(
+        krcg_bot.autocomplete_name(typing.cast(hikari.AutocompleteInteraction, interaction), name)
+    )
     return interaction.choices
 
 

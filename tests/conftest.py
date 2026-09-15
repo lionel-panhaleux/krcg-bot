@@ -20,9 +20,10 @@ os.environ["DISCORD_TOKEN"] = ".".join(
     )
 )
 
-import krcg  # noqa: E402
-import krcg.loader  # noqa: E402
-import krcg_bot  # noqa: E402
+import krcg
+import krcg.loader
+
+import krcg_bot
 
 
 def _no_fallback(*args, **kwargs):

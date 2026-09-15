@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.7.19,<0.8"]
+requires = ["uv_build>=0.12.13,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -26,7 +26,7 @@ requires-python = ">=3.13"
 dependencies = ["aiohttp", "hikari>=2.5,<3", "krcg>=5.9,<6", "unidecode"]
 
 [dependency-groups]
-dev = ["ipython", "mypy", "pytest", "ruff"]
+dev = ["ipython", "pytest", "ruff", "ty"]
 # deploy only: kept out of dev so CI and contributors never install Ansible
 deploy = ["ansible"]
 
@@ -41,12 +41,3 @@ krcg-bot = "krcg_bot:main"
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-
-[tool.mypy]
-warn_return_any = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_decorators = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-strict_equality = true

@@ -3,7 +3,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   test:
@@ -23,14 +23,13 @@ jobs:
 
       # the tools directly, not `just`: it is neither a declared dependency nor
       # on the runner, and adding one to fix a workflow is the wrong trade
-      - name: Format
-        run: uv run ruff format --check
-
       - name: Lint
-        run: uv run ruff check
+        run: |
+          uv run ruff check
+          uv run ruff format --check
 
-      - name: Types
-        run: uv run mypy src/krcg_bot
+      - name: Typecheck
+        run: uv run ty check --error-on-warning
 
       # needs the network: the suite runs against the live KRCG corpus
       - name: Test
